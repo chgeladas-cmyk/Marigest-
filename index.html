@@ -571,10 +571,19 @@
     </main>
 </div>
 
+<script type="importmap">
+{
+  "imports": {
+    "firebase/app":       "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js",
+    "firebase/auth":      "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js",
+    "firebase/firestore": "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js"
+  }
+}
+</script>
 <script type="module">
-    import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
-    import { getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
-    import { getFirestore, doc, setDoc, collection, onSnapshot, deleteDoc } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+    import { initializeApp }  from "firebase/app";
+    import { getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged } from "firebase/auth";
+    import { getFirestore, doc, setDoc, collection, onSnapshot, deleteDoc } from "firebase/firestore";
 
     const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
         apiKey: "AIzaSyAZN-1E2MpiKl9TQeUtHfbmBU729Dk5VbQ",
@@ -703,17 +712,38 @@
     };
 
     // ── FIREBASE AUTH ───────────────────────────────────────────
-    (async () => {
+    async function initAuth() {
         try {
-            if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token)
+            if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
                 await signInWithCustomToken(auth, __initial_auth_token);
-            else
+            } else {
                 await signInAnonymously(auth);
-        } catch {
+            }
+        } catch(err) {
+            console.error('Erro na autenticação do Firebase:', err);
             setStatus('bg-rose-50 text-rose-700 border-rose-200',
-                '<i class="fa-solid fa-cloud-slash"></i><span>Erro</span>');
+                '<i class="fa-solid fa-cloud-slash"></i><span>Sem nuvem</span>');
+            modoOffline();
         }
-    })();
+    }
+    initAuth();
+
+    function modoOffline() {
+        setStatus('bg-slate-100 text-slate-600 border-slate-200',
+            '<i class="fa-solid fa-hard-drive"></i><span>Modo Local</span>');
+        // Carrega do localStorage como fallback
+        try {
+            const mv = localStorage.getItem('mg_movimentacoes');
+            const fi = localStorage.getItem('mg_fiados');
+            const re = localStorage.getItem('mg_retiradas');
+            if (mv) movimentacoes = JSON.parse(mv);
+            if (fi) fiados        = JSON.parse(fi);
+            if (re) retiradas     = JSON.parse(re);
+        } catch {}
+        renderizarTudo();
+        // Sobrescreve funções de escrita para salvar local
+        window._modoOffline = true;
+    }
 
     function setStatus(cls, html) {
         const el = document.getElementById('firebase-status');
@@ -935,7 +965,22 @@
     // ── FECHAMENTO ──────────────────────────────────────────────
     window.salvarFechamento = async function(e) {
         e.preventDefault();
-        if (!auth.currentUser) return;
+        if (!auth.currentUser && !window._modoOffline) return;
+        if (window._modoOffline) {
+            const id = Date.now().toString();
+            const f = {
+                id, data: document.getElementById('data-movimento').value,
+                dinheiro: { sistema: +document.getElementById('dinheiro-sistema').value||0, fisico: +document.getElementById('dinheiro-fisico').value||0 },
+                pix:      { sistema: +document.getElementById('pix-sistema').value||0,      fisico: +document.getElementById('pix-fisico').value||0 },
+                credito:  { sistema: +document.getElementById('credito-sistema').value||0,  fisico: +document.getElementById('credito-fisico').value||0 },
+                debito:   { sistema: +document.getElementById('debito-sistema').value||0,   fisico: +document.getElementById('debito-fisico').value||0 }
+            };
+            const idx = movimentacoes.findIndex(m => m.id === (idEdicaoAtiva || ''));
+            if (idx >= 0) movimentacoes[idx] = f; else movimentacoes.push(f);
+            localStorage.setItem('mg_movimentacoes', JSON.stringify(movimentacoes));
+            showToast('Fechamento salvo localmente!','success');
+            cancelarEdicaoCaixa(); switchTab('dashboard-tab'); renderizarTudo(); return;
+        }
         const id = idEdicaoAtiva || Date.now().toString();
         const f = {
             id, data: document.getElementById('data-movimento').value,
@@ -954,6 +999,11 @@
 
     window.excluirMovimentacao = async function(id) {
         showConfirm('Excluir Fechamento?','Esta ação é permanente. Deseja continuar?', async () => {
+            if (window._modoOffline) {
+                movimentacoes = movimentacoes.filter(m => m.id !== id);
+                localStorage.setItem('mg_movimentacoes', JSON.stringify(movimentacoes));
+                showToast('Fechamento excluído.','danger'); renderizarTudo(); return;
+            }
             try {
                 await deleteDoc(doc(db,'artifacts',colId,'public','data','movimentacoes',id));
                 showToast('Fechamento excluído.','danger');
@@ -1001,7 +1051,17 @@
 
     window.salvarRetirada = async function(e) {
         e.preventDefault();
-        if (!auth.currentUser) return;
+        if (!auth.currentUser && !window._modoOffline) return;
+        if (window._modoOffline) {
+            const nova = { id: Date.now().toString(), data: document.getElementById('data-retirada').value,
+                categoria: document.getElementById('categoria-retirada').value,
+                valor: +document.getElementById('valor-retirada').value||0,
+                desc: document.getElementById('desc-retirada').value.trim() };
+            retiradas.push(nova);
+            localStorage.setItem('mg_retiradas', JSON.stringify(retiradas));
+            document.getElementById('form-retirada').reset(); configurarDatasIniciais();
+            showToast('Retirada salva localmente!','success'); renderizarTudo(); return;
+        }
         const id = Date.now().toString();
         const nova = {
             id, data: document.getElementById('data-retirada').value,
@@ -1019,6 +1079,11 @@
 
     window.excluirRetirada = async function(id) {
         showConfirm('Excluir Retirada?','Esta ação é permanente.', async () => {
+            if (window._modoOffline) {
+                retiradas = retiradas.filter(r => r.id !== id);
+                localStorage.setItem('mg_retiradas', JSON.stringify(retiradas));
+                showToast('Retirada excluída.','danger'); renderizarTudo(); return;
+            }
             try {
                 await deleteDoc(doc(db,'artifacts',colId,'public','data','retiradas',id));
                 showToast('Retirada excluída.','danger');
@@ -1071,7 +1136,16 @@
 
     window.salvarFiado = async function(e) {
         e.preventDefault();
-        if (!auth.currentUser) return;
+        if (!auth.currentUser && !window._modoOffline) return;
+        if (window._modoOffline) {
+            const novo = { id: Date.now().toString(), data: document.getElementById('data-fiado').value,
+                cliente: document.getElementById('cliente-fiado').value.trim(),
+                valor: +document.getElementById('valor-fiado').value||0, status: 'pendente' };
+            fiados.push(novo);
+            localStorage.setItem('mg_fiados', JSON.stringify(fiados));
+            document.getElementById('form-fiado').reset(); configurarDatasIniciais();
+            showToast('Fiado salvo localmente!','success'); renderizarTudo(); return;
+        }
         const id = Date.now().toString();
         const novo = {
             id, data: document.getElementById('data-fiado').value,
@@ -1091,6 +1165,12 @@
         const item = fiados.find(f => f.id === id);
         if (!item) return;
         const novoStatus = item.status === 'pendente' ? 'pago' : 'pendente';
+        if (window._modoOffline) {
+            item.status = novoStatus;
+            localStorage.setItem('mg_fiados', JSON.stringify(fiados));
+            showToast(novoStatus === 'pago' ? 'Fiado marcado como pago!' : 'Fiado reaberto.','success');
+            renderizarTudo(); return;
+        }
         try {
             await setDoc(doc(db,'artifacts',colId,'public','data','fiados',id), { ...item, status: novoStatus });
             showToast(novoStatus === 'pago' ? 'Fiado marcado como pago!' : 'Fiado reaberto.','success');
@@ -1099,6 +1179,11 @@
 
     window.excluirFiado = async function(id) {
         showConfirm('Excluir Fiado?','Esta ação é permanente.', async () => {
+            if (window._modoOffline) {
+                fiados = fiados.filter(f => f.id !== id);
+                localStorage.setItem('mg_fiados', JSON.stringify(fiados));
+                showToast('Fiado excluído.','danger'); renderizarTudo(); return;
+            }
             try {
                 await deleteDoc(doc(db,'artifacts',colId,'public','data','fiados',id));
                 showToast('Fiado excluído.','danger');
