@@ -1,1564 +1,267 @@
 <!DOCTYPE html>
-<html lang="pt-BR" class="h-full bg-slate-50">
+<html lang="pt-BR">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Marigest — Gestão de Caixa</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
-    <script>
-        tailwind.config = { theme: { extend: { fontFamily: { sans: ['Plus Jakarta Sans', 'sans-serif'] } } } }
-    </script>
-    <style>
-        ::-webkit-scrollbar { width: 5px; height: 5px; }
-        ::-webkit-scrollbar-track { background: #f1f5f9; }
-        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
-        .chip-active { background: #1e293b !important; color: white !important; }
-        @keyframes fadeIn { from { opacity:0; transform:translateY(6px); } to { opacity:1; transform:translateY(0); } }
-        .fade-in { animation: fadeIn 0.2s ease-out; }
-        .tab-active { border-bottom-color: #2563eb !important; color: #2563eb !important; }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Marigest — Entradas e Saídas</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<style>@media print{.no-print{display:none!important}}</style>
 </head>
-<body class="h-full text-slate-800 antialiased font-sans bg-slate-50">
+<body class="bg-slate-50 text-slate-800 antialiased">
+<header class="no-print bg-white border-b border-slate-200 sticky top-0 z-10">
+  <div class="max-w-4xl mx-auto px-4 h-14 flex items-center justify-between">
+    <h1 class="font-bold text-lg">Marigest</h1>
+    <span id="status" class="text-xs font-semibold px-3 py-1 rounded-lg bg-amber-50 text-amber-700">Conectando...</span>
+  </div>
+</header>
 
-<!-- Toast -->
-<div id="toast" class="fixed top-5 right-5 z-50 transform translate-y-[-150%] transition-transform duration-300 flex items-center p-4 max-w-xs bg-white rounded-xl shadow-xl border border-slate-100" role="alert">
-    <div id="toast-icon-container" class="inline-flex flex-shrink-0 justify-center items-center w-8 h-8 rounded-lg">
-        <i id="toast-icon" class="fa-solid"></i>
+<main class="max-w-4xl mx-auto p-4 space-y-4">
+  <!-- Saldo total -->
+  <div class="bg-slate-900 text-white p-5 rounded-2xl grid grid-cols-2 sm:grid-cols-4 gap-4">
+    <div class="col-span-2 sm:col-span-1"><p class="text-[10px] font-bold text-slate-400 uppercase">Saldo total</p><p id="s-total" class="text-2xl font-black">R$ 0,00</p></div>
+    <div><p class="text-[10px] font-bold text-slate-400 uppercase">Dinheiro</p><p id="s-dinheiro" class="text-lg font-bold">R$ 0,00</p></div>
+    <div><p class="text-[10px] font-bold text-slate-400 uppercase">Pix</p><p id="s-pix" class="text-lg font-bold">R$ 0,00</p></div>
+    <div><p class="text-[10px] font-bold text-slate-400 uppercase">Cartão</p><p id="s-cartao" class="text-lg font-bold">R$ 0,00</p></div>
+  </div>
+
+  <div class="no-print flex gap-1 border-b border-slate-200">
+    <button id="b-lanc" onclick="aba('lanc')" class="px-4 py-2.5 text-sm font-semibold border-b-2 border-blue-600 text-blue-600">Lançamentos</button>
+    <button id="b-rel" onclick="aba('rel')" class="px-4 py-2.5 text-sm font-semibold border-b-2 border-transparent text-slate-500">Relatórios</button>
+  </div>
+
+  <!-- LANÇAMENTOS -->
+  <section id="t-lanc" class="space-y-4">
+    <form onsubmit="salvarForm(event)" class="bg-white p-5 rounded-2xl border border-slate-200 space-y-3">
+      <div class="grid grid-cols-2 gap-2">
+        <button type="button" id="tp-entrada" onclick="setTipo('entrada')" class="py-2 rounded-xl text-sm font-bold">Entrada</button>
+        <button type="button" id="tp-saida" onclick="setTipo('saida')" class="py-2 rounded-xl text-sm font-bold">Saída</button>
+      </div>
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <label class="text-xs font-bold text-slate-500 uppercase">Data<input type="date" id="f-data" required class="mt-1 w-full bg-slate-50 border border-slate-200 rounded-xl py-2 px-3 text-sm font-semibold"></label>
+        <label class="text-xs font-bold text-slate-500 uppercase">Valor (R$)<input type="number" step="0.01" min="0.01" id="f-valor" required placeholder="0,00" class="mt-1 w-full bg-slate-50 border border-slate-200 rounded-xl py-2 px-3 text-sm font-semibold"></label>
+        <label class="text-xs font-bold text-slate-500 uppercase"><span id="f-forma-l">Forma</span>
+          <select id="f-forma" class="mt-1 w-full bg-slate-50 border border-slate-200 rounded-xl py-2 px-3 text-sm font-semibold"><option value="dinheiro">Dinheiro</option><option value="pix">Pix</option><option value="cartao">Cartão</option></select></label>
+      </div>
+      <label class="block text-xs font-bold text-slate-500 uppercase">Descrição (opcional)<input type="text" id="f-desc" placeholder="Ex: pagamento fornecedor" class="mt-1 w-full bg-slate-50 border border-slate-200 rounded-xl py-2 px-3 text-sm"></label>
+      <div class="flex gap-2">
+        <button type="button" id="f-cancel" onclick="cancelarEdicao()" class="hidden flex-1 py-2.5 bg-slate-100 rounded-xl text-sm font-bold">Cancelar</button>
+        <button type="submit" id="f-submit" class="flex-1 py-2.5 text-white rounded-xl text-sm font-bold">Salvar</button>
+      </div>
+    </form>
+
+    <div class="bg-white p-5 rounded-2xl border border-slate-200">
+      <div class="flex flex-wrap items-center gap-2 mb-3">
+        <div id="filtros" class="flex gap-1"></div>
+        <input type="text" id="busca" oninput="renderLista()" placeholder="Buscar descrição..." class="flex-1 min-w-[140px] bg-slate-50 border border-slate-200 rounded-xl py-1.5 px-3 text-xs">
+        <button onclick="exportarCSV()" class="bg-slate-100 hover:bg-slate-200 text-xs font-semibold py-2 px-3 rounded-lg">CSV</button>
+      </div>
+      <div class="overflow-x-auto"><table class="w-full text-sm text-left"><tbody id="lista" class="divide-y divide-slate-100"></tbody></table></div>
     </div>
-    <div id="toast-message" class="ml-3 text-sm font-semibold text-slate-700"></div>
-</div>
+  </section>
 
-<!-- Modal Confirmação -->
-<div id="confirm-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-    <div class="bg-white rounded-2xl max-w-md w-full p-6 shadow-2xl">
-        <div class="text-center">
-            <div class="mx-auto flex items-center justify-center h-12 w-12 rounded-full bg-red-100 text-red-600 mb-4"><i class="fa-solid fa-triangle-exclamation text-lg"></i></div>
-            <h3 class="text-lg font-bold text-slate-900" id="confirm-title"></h3>
-            <p class="text-sm text-slate-500 mt-2" id="confirm-body"></p>
-        </div>
-        <div class="flex gap-3 mt-6">
-            <button onclick="closeConfirmModal(false)" class="flex-1 py-2.5 bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold rounded-xl text-sm transition">Cancelar</button>
-            <button id="confirm-yes-btn" class="flex-1 py-2.5 bg-red-600 hover:bg-red-700 text-white font-semibold rounded-xl text-sm transition">Confirmar</button>
-        </div>
+  <!-- RELATÓRIOS -->
+  <section id="t-rel" class="hidden space-y-4">
+    <div class="no-print bg-white p-4 rounded-2xl border border-slate-200 flex flex-wrap items-center gap-3">
+      <select id="r-tipo" onchange="trocarRel()" class="bg-slate-50 border border-slate-200 rounded-xl py-2 px-3 text-xs font-semibold"><option value="dia">Diário</option><option value="semana">Semanal</option><option value="mes">Mensal</option><option value="ano">Anual</option></select>
+      <input type="date" id="r-data" onchange="renderRel()" class="bg-slate-50 border border-slate-200 rounded-xl py-1.5 px-3 text-xs font-semibold">
+      <input type="month" id="r-mes" onchange="renderRel()" class="hidden bg-slate-50 border border-slate-200 rounded-xl py-1.5 px-3 text-xs font-semibold">
+      <input type="number" id="r-ano" min="2000" max="2100" onchange="renderRel()" class="hidden w-24 bg-slate-50 border border-slate-200 rounded-xl py-1.5 px-3 text-xs font-semibold">
+      <button onclick="window.print()" class="ml-auto bg-slate-100 hover:bg-slate-200 text-xs font-semibold py-2 px-3.5 rounded-lg">Imprimir / PDF</button>
     </div>
-</div>
-
-<!-- Modal Tabela de Preços -->
-<div id="precos-modal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/50 backdrop-blur-sm p-4">
-    <div class="bg-white rounded-2xl max-w-2xl w-full p-6 shadow-2xl max-h-[90vh] flex flex-col">
-        <div class="flex items-center justify-between border-b border-slate-100 pb-4 mb-4">
-            <div>
-                <h3 class="text-lg font-bold text-slate-900 flex items-center gap-2"><i class="fa-solid fa-tags text-purple-600"></i> Tabela de Preços</h3>
-                <p class="text-xs text-slate-400 mt-0.5">Edite preços unitários e por pack. Salvos no navegador.</p>
-            </div>
-            <button onclick="fecharModalPrecos()" class="text-slate-400 hover:text-slate-700 p-1 transition"><i class="fa-solid fa-xmark text-lg"></i></button>
-        </div>
-        <div class="overflow-y-auto flex-1">
-            <table class="w-full text-sm">
-                <thead class="sticky top-0 bg-white">
-                    <tr class="text-xs text-slate-400 uppercase tracking-wider border-b border-slate-100">
-                        <th class="pb-2 text-left font-semibold">Produto</th>
-                        <th class="pb-2 text-right font-semibold">Unit. (R$)</th>
-                        <th class="pb-2 text-right font-semibold">Pack 12un (R$)</th>
-                        <th class="pb-2 text-center font-semibold"></th>
-                    </tr>
-                </thead>
-                <tbody id="precos-corpo" class="divide-y divide-slate-50"></tbody>
-            </table>
-        </div>
-        <div class="border-t border-slate-100 pt-4 mt-4">
-            <p class="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3">Adicionar Produto</p>
-            <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
-                <input type="text" id="novo-chave" placeholder="Palavra-chave (ex: skol)" class="col-span-2 bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-purple-500 transition">
-                <input type="text" id="novo-alias" placeholder="Nome amigável" class="bg-slate-50 border border-slate-200 rounded-lg px-3 py-2 text-sm outline-none focus:border-purple-500 transition">
-                <div class="flex gap-1.5">
-                    <input type="number" step="0.01" id="novo-unit" placeholder="Unit." class="w-1/2 bg-slate-50 border border-slate-200 rounded-lg px-2 py-2 text-sm outline-none focus:border-purple-500 transition text-right">
-                    <input type="number" step="0.01" id="novo-pack" placeholder="Pack" class="w-1/2 bg-slate-50 border border-slate-200 rounded-lg px-2 py-2 text-sm outline-none focus:border-purple-500 transition text-right">
-                </div>
-            </div>
-            <button onclick="adicionarProduto()" class="mt-2 w-full py-2 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-lg text-sm transition flex items-center justify-center gap-2">
-                <i class="fa-solid fa-plus"></i> Adicionar Produto
-            </button>
-        </div>
-    </div>
-</div>
-
-<div class="min-h-screen flex flex-col">
-    <!-- Header -->
-    <header class="bg-white border-b border-slate-200 sticky top-0 z-30">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-            <div class="flex items-center justify-between h-16">
-                <div class="flex items-center gap-3">
-                    <div class="bg-blue-600 text-white p-2.5 rounded-xl shadow-md shadow-blue-200"><i class="fa-solid fa-wallet text-xl"></i></div>
-                    <div>
-                        <h1 class="text-lg font-bold text-slate-900 leading-tight">Mariane Gestão</h1>
-                        <p class="text-xs text-slate-400">Auditoria · Packs · Fechamento</p>
-                    </div>
-                </div>
-                <div class="flex items-center gap-2">
-                    <button onclick="abrirModalPrecos()" class="flex items-center gap-1.5 py-1.5 px-3 rounded-lg text-xs font-semibold bg-purple-50 text-purple-700 border border-purple-200 hover:bg-purple-100 transition">
-                        <i class="fa-solid fa-tags"></i><span class="hidden sm:inline">Preços</span>
-                    </button>
-                    <div id="firebase-status" class="flex items-center gap-1.5 py-1.5 px-3 rounded-lg text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200">
-                        <i class="fa-solid fa-circle-notch animate-spin"></i><span>Conectando...</span>
-                    </div>
-                    <div class="flex items-center gap-2 bg-slate-100 py-1.5 px-3 rounded-lg text-xs font-semibold text-slate-600">
-                        <i class="fa-solid fa-calendar"></i><span id="current-date-header">--/--/----</span>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </header>
-
-    <main class="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
-        <!-- Abas -->
-        <div class="flex border-b border-slate-200 mb-6 overflow-x-auto gap-1">
-            <button onclick="switchTab('dashboard-tab')" id="btn-dashboard-tab" class="tab-btn tab-active py-3 px-4 font-semibold text-sm border-b-2 border-transparent text-slate-500 hover:text-slate-800 flex items-center gap-2 whitespace-nowrap transition-all">
-                <i class="fa-solid fa-chart-line"></i> Painel
-            </button>
-            <button onclick="switchTab('leitor-tab')" id="btn-leitor-tab" class="tab-btn py-3 px-4 font-semibold text-sm border-b-2 border-transparent text-slate-500 hover:text-slate-800 flex items-center gap-2 whitespace-nowrap transition-all">
-                <i class="fa-solid fa-wand-magic-sparkles text-purple-500"></i> Leitor
-            </button>
-            <button onclick="switchTab('lancamentos-tab')" id="btn-lancamentos-tab" class="tab-btn py-3 px-4 font-semibold text-sm border-b-2 border-transparent text-slate-500 hover:text-slate-800 flex items-center gap-2 whitespace-nowrap transition-all">
-                <i class="fa-solid fa-cash-register"></i> Fechamento
-                <span id="edit-indicator" class="hidden bg-amber-500 text-white text-[9px] px-1.5 py-0.5 rounded-full font-bold">Editando</span>
-            </button>
-            <button onclick="switchTab('retiradas-tab')" id="btn-retiradas-tab" class="tab-btn py-3 px-4 font-semibold text-sm border-b-2 border-transparent text-slate-500 hover:text-slate-800 flex items-center gap-2 whitespace-nowrap transition-all">
-                <i class="fa-solid fa-hand-holding-dollar text-red-500"></i> Retiradas
-            </button>
-            <button onclick="switchTab('fiados-tab')" id="btn-fiados-tab" class="tab-btn py-3 px-4 font-semibold text-sm border-b-2 border-transparent text-slate-500 hover:text-slate-800 flex items-center gap-2 whitespace-nowrap transition-all">
-                <i class="fa-solid fa-user-tag"></i> Fiados
-            </button>
-            <button onclick="switchTab('historico-tab')" id="btn-historico-tab" class="tab-btn py-3 px-4 font-semibold text-sm border-b-2 border-transparent text-slate-500 hover:text-slate-800 flex items-center gap-2 whitespace-nowrap transition-all">
-                <i class="fa-solid fa-clock-rotate-left"></i> Histórico
-            </button>
-            <button onclick="switchTab('graficos-tab')" id="btn-graficos-tab" class="tab-btn py-3 px-4 font-semibold text-sm border-b-2 border-transparent text-slate-500 hover:text-slate-800 flex items-center gap-2 whitespace-nowrap transition-all">
-                <i class="fa-solid fa-chart-bar text-emerald-500"></i> Gráficos
-            </button>
-        </div>
-
-        <!-- ABA 1: DASHBOARD -->
-        <div id="dashboard-tab" class="tab-content block space-y-5 fade-in">
-            <div class="bg-white p-4 rounded-2xl border border-slate-200 flex flex-wrap items-center justify-between gap-4">
-                <div class="flex items-center gap-3">
-                    <span class="text-sm font-semibold text-slate-500">Período:</span>
-                    <div class="inline-flex rounded-lg bg-slate-100 p-0.5 gap-0.5">
-                        <button onclick="setDashboardPeriod('hoje')" id="dash-p-hoje" class="dash-period-btn px-3 py-1.5 rounded-md text-xs font-semibold bg-white text-slate-800 shadow-sm transition">Hoje</button>
-                        <button onclick="setDashboardPeriod('mes')" id="dash-p-mes" class="dash-period-btn px-3 py-1.5 rounded-md text-xs font-semibold text-slate-500 transition">Este Mês</button>
-                        <button onclick="setDashboardPeriod('todos')" id="dash-p-todos" class="dash-period-btn px-3 py-1.5 rounded-md text-xs font-semibold text-slate-500 transition">Tudo</button>
-                    </div>
-                </div>
-                <div class="text-xs text-slate-400 italic" id="dash-periodo-desc">Mostrando dados de hoje</div>
-            </div>
-
-            <!-- KPI Cards -->
-            <div class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
-                <div class="bg-white p-4 rounded-2xl border border-slate-200 flex flex-col justify-between shadow-sm">
-                    <div class="flex items-start justify-between">
-                        <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Dinheiro</span>
-                        <i class="fa-solid fa-money-bill-wave text-red-300 text-sm"></i>
-                    </div>
-                    <h3 class="text-lg font-bold text-slate-900 mt-2" id="dash-val-dinheiro">R$ 0,00</h3>
-                    <div class="mt-2 pt-2 border-t border-slate-100 text-xs flex justify-between">
-                        <span class="text-slate-400">Dif.</span>
-                        <span id="dash-dif-dinheiro" class="font-bold text-slate-500">R$ 0,00</span>
-                    </div>
-                </div>
-                <div class="bg-white p-4 rounded-2xl border border-slate-200 flex flex-col justify-between shadow-sm">
-                    <div class="flex items-start justify-between">
-                        <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Pix</span>
-                        <i class="fa-brands fa-pix text-sky-300 text-sm"></i>
-                    </div>
-                    <h3 class="text-lg font-bold text-slate-900 mt-2" id="dash-val-pix">R$ 0,00</h3>
-                    <div class="mt-2 pt-2 border-t border-slate-100 text-xs flex justify-between">
-                        <span class="text-slate-400">Dif.</span>
-                        <span id="dash-dif-pix" class="font-bold text-slate-500">R$ 0,00</span>
-                    </div>
-                </div>
-                <div class="bg-white p-4 rounded-2xl border border-slate-200 flex flex-col justify-between shadow-sm">
-                    <div class="flex items-start justify-between">
-                        <span class="text-[10px] font-bold text-slate-400 uppercase tracking-wider">Cartões</span>
-                        <i class="fa-solid fa-credit-card text-amber-300 text-sm"></i>
-                    </div>
-                    <h3 class="text-lg font-bold text-slate-900 mt-2" id="dash-val-cartao">R$ 0,00</h3>
-                    <div class="mt-2 pt-2 border-t border-slate-100 text-xs flex justify-between">
-                        <span class="text-slate-400">C/D</span>
-                        <span id="dash-cartao-split-summary" class="font-bold text-slate-500 text-[10px]">R$0/R$0</span>
-                    </div>
-                </div>
-                <div class="bg-white p-4 rounded-2xl border border-slate-200 border-l-4 border-l-red-400 flex flex-col justify-between shadow-sm">
-                    <div class="flex items-start justify-between">
-                        <span class="text-[10px] font-bold text-red-400 uppercase tracking-wider">Retiradas</span>
-                        <i class="fa-solid fa-hand-holding-dollar text-red-300 text-sm"></i>
-                    </div>
-                    <h3 class="text-lg font-bold text-red-700 mt-2" id="dash-val-retiradas">R$ 0,00</h3>
-                    <div class="mt-2 pt-2 border-t border-slate-100 text-xs flex justify-between">
-                        <span class="text-slate-400">S/D</span>
-                        <span id="dash-retiradas-split-summary" class="font-bold text-slate-500 text-[10px]">R$0/R$0</span>
-                    </div>
-                </div>
-                <div class="col-span-2 sm:col-span-1 bg-blue-600 p-4 rounded-2xl text-white flex flex-col justify-between shadow-lg shadow-blue-100">
-                    <span class="text-[10px] font-bold text-blue-200 uppercase tracking-wider">Balanço Final</span>
-                    <h3 class="text-2xl font-black mt-2" id="dash-val-total">R$ 0,00</h3>
-                    <div class="mt-2 pt-2 border-t border-blue-500 text-xs flex justify-between">
-                        <span class="text-blue-300">Diferença:</span>
-                        <span id="dash-balanco-final" class="font-bold text-white">R$ 0,00</span>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Indicadores adicionais -->
-            <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                <div class="bg-white p-4 rounded-xl border border-slate-200 flex items-center gap-3">
-                    <div class="w-9 h-9 rounded-xl bg-orange-50 flex items-center justify-center flex-shrink-0"><i class="fa-solid fa-user-tag text-orange-500 text-sm"></i></div>
-                    <div class="flex-1">
-                        <span class="text-[10px] font-bold text-slate-400 uppercase">Fiados Pendentes</span>
-                        <h4 class="text-base font-bold text-orange-600" id="dash-val-fiado">R$ 0,00</h4>
-                    </div>
-                    <div class="text-right">
-                        <span class="text-[10px] text-slate-400 block">clientes</span>
-                        <span class="text-sm font-bold text-slate-700" id="dash-fiados-ativos-count">0</span>
-                    </div>
-                </div>
-                <div class="bg-white p-4 rounded-xl border border-slate-200 flex items-center gap-3">
-                    <div class="w-9 h-9 rounded-xl bg-emerald-50 flex items-center justify-center flex-shrink-0"><i class="fa-solid fa-circle-check text-emerald-500 text-sm"></i></div>
-                    <div>
-                        <span class="text-[10px] font-bold text-slate-400 uppercase">Fechamentos</span>
-                        <h4 class="text-base font-bold text-slate-700" id="dash-qtd-fechamentos">0</h4>
-                    </div>
-                </div>
-                <div class="bg-white p-4 rounded-xl border border-slate-200 flex items-center gap-3">
-                    <div class="w-9 h-9 rounded-xl bg-blue-50 flex items-center justify-center flex-shrink-0"><i class="fa-solid fa-chart-pie text-blue-500 text-sm"></i></div>
-                    <div>
-                        <span class="text-[10px] font-bold text-slate-400 uppercase">Receita Total</span>
-                        <h4 class="text-base font-bold text-blue-700" id="dash-receita-total">R$ 0,00</h4>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Comparativo + Despesas -->
-            <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
-                <div class="bg-white p-5 rounded-2xl border border-slate-200 lg:col-span-2 space-y-4">
-                    <div class="flex items-center justify-between border-b border-slate-100 pb-3">
-                        <h2 class="font-bold text-slate-900 text-sm flex items-center gap-2"><i class="fa-solid fa-balance-scale text-blue-600"></i> Auditoria: Sistema × Contagem</h2>
-                    </div>
-                    <div class="space-y-3">
-                        <div>
-                            <div class="flex justify-between text-xs font-semibold text-slate-500 mb-1.5">
-                                <span><i class="fa-solid fa-money-bill-wave text-red-400 mr-1 text-[10px]"></i>Dinheiro</span>
-                                <span>Sis: <span id="bar-dinheiro-sis">R$ 0</span> | Físico: <span id="bar-dinheiro-fis">R$ 0</span></span>
-                            </div>
-                            <div class="w-full bg-slate-100 rounded-full h-2.5 flex overflow-hidden">
-                                <div id="bar-dinheiro-sis-fill" class="bg-red-300 h-full transition-all duration-500" style="width:0%"></div>
-                                <div id="bar-dinheiro-fis-fill" class="bg-red-500 h-full border-l-2 border-white transition-all duration-500" style="width:0%"></div>
-                            </div>
-                        </div>
-                        <div>
-                            <div class="flex justify-between text-xs font-semibold text-slate-500 mb-1.5">
-                                <span><i class="fa-brands fa-pix text-sky-400 mr-1 text-[10px]"></i>Pix</span>
-                                <span>Sis: <span id="bar-pix-sis">R$ 0</span> | Conta: <span id="bar-pix-fis">R$ 0</span></span>
-                            </div>
-                            <div class="w-full bg-slate-100 rounded-full h-2.5 flex overflow-hidden">
-                                <div id="bar-pix-sis-fill" class="bg-sky-300 h-full transition-all duration-500" style="width:0%"></div>
-                                <div id="bar-pix-fis-fill" class="bg-sky-500 h-full border-l-2 border-white transition-all duration-500" style="width:0%"></div>
-                            </div>
-                        </div>
-                        <div>
-                            <div class="flex justify-between text-xs font-semibold text-slate-500 mb-1.5">
-                                <span><i class="fa-solid fa-credit-card text-amber-400 mr-1 text-[10px]"></i>Crédito</span>
-                                <span>Sis: <span id="bar-credito-sis">R$ 0</span> | Máq: <span id="bar-credito-fis">R$ 0</span></span>
-                            </div>
-                            <div class="w-full bg-slate-100 rounded-full h-2.5 flex overflow-hidden">
-                                <div id="bar-credito-sis-fill" class="bg-amber-200 h-full transition-all duration-500" style="width:0%"></div>
-                                <div id="bar-credito-fis-fill" class="bg-amber-400 h-full border-l-2 border-white transition-all duration-500" style="width:0%"></div>
-                            </div>
-                        </div>
-                        <div>
-                            <div class="flex justify-between text-xs font-semibold text-slate-500 mb-1.5">
-                                <span><i class="fa-solid fa-credit-card text-yellow-400 mr-1 text-[10px]"></i>Débito</span>
-                                <span>Sis: <span id="bar-debito-sis">R$ 0</span> | Máq: <span id="bar-debito-fis">R$ 0</span></span>
-                            </div>
-                            <div class="w-full bg-slate-100 rounded-full h-2.5 flex overflow-hidden">
-                                <div id="bar-debito-sis-fill" class="bg-yellow-200 h-full transition-all duration-500" style="width:0%"></div>
-                                <div id="bar-debito-fis-fill" class="bg-yellow-400 h-full border-l-2 border-white transition-all duration-500" style="width:0%"></div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                <div class="bg-white p-5 rounded-2xl border border-slate-200 flex flex-col">
-                    <div class="border-b border-slate-100 pb-3 mb-4">
-                        <h2 class="font-bold text-slate-900 text-sm flex items-center gap-2"><i class="fa-solid fa-receipt text-red-500"></i> Despesas do Período</h2>
-                    </div>
-                    <div class="space-y-2 flex-1">
-                        <div class="flex justify-between p-2.5 bg-slate-50 rounded-lg"><span class="text-xs text-slate-600 font-medium">Taxa de Máquina</span><span class="text-xs font-bold text-slate-800" id="desp-taxas">R$ 0,00</span></div>
-                        <div class="flex justify-between p-2.5 bg-slate-50 rounded-lg"><span class="text-xs text-slate-600 font-medium">Sangria</span><span class="text-xs font-bold text-slate-800" id="desp-sangria">R$ 0,00</span></div>
-                        <div class="flex justify-between p-2.5 bg-slate-50 rounded-lg"><span class="text-xs text-slate-600 font-medium">Saídas do Dia</span><span class="text-xs font-bold text-slate-800" id="desp-saidas">R$ 0,00</span></div>
-                        <div class="flex justify-between p-2.5 bg-slate-50 rounded-lg"><span class="text-xs text-slate-600 font-medium">Outros</span><span class="text-xs font-bold text-slate-800" id="desp-outros">R$ 0,00</span></div>
-                    </div>
-                    <div class="mt-4 pt-3 border-t border-slate-100">
-                        <button onclick="limparTudo()" class="text-rose-500 hover:text-rose-700 font-bold text-xs flex items-center gap-1 transition"><i class="fa-solid fa-trash-can"></i> Redefinir banco de dados</button>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- ABA 2: LEITOR -->
-        <div id="leitor-tab" class="tab-content hidden space-y-5 fade-in">
-            <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
-                <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col space-y-4">
-                    <div>
-                        <h2 class="font-bold text-slate-900 text-base flex items-center gap-2"><i class="fa-solid fa-wand-magic-sparkles text-purple-600"></i> Auditor de Relatório</h2>
-                        <p class="text-xs text-slate-400 mt-0.5">Cole o texto bruto do PDV.</p>
-                    </div>
-                    <textarea id="raw-report-text" rows="14" placeholder="Cole aqui o relatório de vendas..." class="w-full bg-slate-50 border border-slate-200 focus:border-purple-500 focus:bg-white rounded-xl p-3 text-xs font-mono text-slate-700 transition outline-none resize-none flex-1"></textarea>
-                    <div class="flex gap-2">
-                        <button onclick="processarRelatorioTexto()" class="flex-1 py-2.5 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-xl text-xs transition flex items-center justify-center gap-2 shadow-md shadow-purple-100">
-                            <i class="fa-solid fa-wand-magic"></i> Processar & Auditar
-                        </button>
-                        <button onclick="limparLeitor()" class="py-2.5 px-4 bg-slate-100 hover:bg-slate-200 text-slate-600 font-semibold rounded-xl text-xs transition">Limpar</button>
-                    </div>
-                </div>
-                <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm lg:col-span-2 flex flex-col space-y-5">
-                    <div class="flex items-center justify-between border-b border-slate-100 pb-4">
-                        <div>
-                            <h2 class="font-bold text-slate-900 text-base flex items-center gap-2"><i class="fa-solid fa-magnifying-glass-chart text-purple-600"></i> Resultado da Auditoria</h2>
-                            <p class="text-xs text-slate-400">Packs de 12 e unidades calculados automaticamente</p>
-                        </div>
-                        <button id="btn-aplicar-fechamento" onclick="aplicarAoFechamento()" disabled class="py-2 px-3.5 bg-slate-100 text-slate-400 font-bold rounded-xl text-xs flex items-center gap-1.5 cursor-not-allowed">
-                            <i class="fa-solid fa-share-from-square"></i> Aplicar ao Fechamento
-                        </button>
-                    </div>
-                    <div class="grid grid-cols-3 gap-3">
-                        <div class="bg-purple-50 p-3 rounded-xl border border-purple-100">
-                            <span class="text-[10px] font-bold text-purple-500 uppercase tracking-wider block">Faturamento</span>
-                            <span class="text-base font-extrabold text-purple-950 block mt-1" id="leitor-total-fat">R$ 0,00</span>
-                        </div>
-                        <div class="bg-blue-50 p-3 rounded-xl border border-blue-100">
-                            <span class="text-[10px] font-bold text-blue-500 uppercase tracking-wider block">Saída Estoque</span>
-                            <span class="text-base font-extrabold text-blue-950 block mt-1" id="leitor-total-itens">0 un.</span>
-                        </div>
-                        <div class="bg-emerald-50 p-3 rounded-xl border border-emerald-100">
-                            <span class="text-[10px] font-bold text-emerald-500 uppercase tracking-wider block">Mix</span>
-                            <span class="text-base font-extrabold text-emerald-950 block mt-1" id="leitor-produtos-distintos">0 tipos</span>
-                        </div>
-                    </div>
-                    <div>
-                        <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Por Meio de Pagamento</h3>
-                        <div class="grid grid-cols-5 gap-2">
-                            <div class="p-2 bg-slate-50 rounded-lg border text-center"><span class="block text-[10px] text-slate-400 font-bold uppercase">Dinheiro</span><span class="text-xs font-bold text-slate-800" id="leitor-meio-dinheiro">R$ 0,00</span></div>
-                            <div class="p-2 bg-slate-50 rounded-lg border text-center"><span class="block text-[10px] text-slate-400 font-bold uppercase">Pix</span><span class="text-xs font-bold text-slate-800" id="leitor-meio-pix">R$ 0,00</span></div>
-                            <div class="p-2 bg-slate-50 rounded-lg border text-center"><span class="block text-[10px] text-slate-400 font-bold uppercase">Crédito</span><span class="text-xs font-bold text-slate-800" id="leitor-meio-credito">R$ 0,00</span></div>
-                            <div class="p-2 bg-slate-50 rounded-lg border text-center"><span class="block text-[10px] text-slate-400 font-bold uppercase">Débito</span><span class="text-xs font-bold text-slate-800" id="leitor-meio-debito">R$ 0,00</span></div>
-                            <div class="p-2 bg-slate-50 rounded-lg border text-center"><span class="block text-[10px] text-slate-400 font-bold uppercase">Fiado</span><span class="text-xs font-bold text-slate-800" id="leitor-meio-fiado">R$ 0,00</span></div>
-                        </div>
-                        <p class="text-[10px] text-slate-400 mt-1.5 italic">* Vendas mistas (Dinheiro+Pix) divididas 50% cada.</p>
-                    </div>
-                    <div class="flex-1 flex flex-col">
-                        <h3 class="text-xs font-bold text-slate-400 uppercase tracking-wider mb-2">Inventário Físico Consolidado</h3>
-                        <div class="overflow-auto border border-slate-100 rounded-xl max-h-64">
-                            <table class="w-full text-left text-xs">
-                                <thead class="bg-slate-50 sticky top-0 border-b border-slate-100">
-                                    <tr class="text-slate-500 font-bold">
-                                        <th class="p-2.5">Item</th><th class="p-2.5">Tipo</th><th class="p-2.5 text-center">Qtd</th><th class="p-2.5 text-right">Preço Unit.</th><th class="p-2.5 text-right">Total</th>
-                                    </tr>
-                                </thead>
-                                <tbody id="tabela-leitor-corpo" class="divide-y divide-slate-100">
-                                    <tr><td colspan="5" class="p-8 text-center text-slate-400 italic">Processe um relatório para ver os resultados.</td></tr>
-                                </tbody>
-                            </table>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- ABA 3: FECHAMENTO -->
-        <div id="lancamentos-tab" class="tab-content hidden max-w-4xl mx-auto fade-in">
-            <form id="form-fechamento" onsubmit="salvarFechamento(event)" class="space-y-5">
-                <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col sm:flex-row sm:items-center justify-between gap-4">
-                    <div>
-                        <h2 class="font-bold text-slate-900 text-lg flex items-center gap-2"><i class="fa-solid fa-calendar-day text-blue-600"></i> Fechamento Diário</h2>
-                        <p class="text-xs text-slate-400 mt-0.5">Informe valores do sistema e contagem física.</p>
-                    </div>
-                    <div class="w-full sm:max-w-xs">
-                        <label class="text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1 block">Data</label>
-                        <input type="date" id="data-movimento" class="w-full bg-slate-50 border border-slate-200 focus:border-blue-500 focus:bg-white rounded-xl py-2 px-3.5 text-sm font-semibold outline-none transition" required>
-                    </div>
-                </div>
-                <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm space-y-5">
-                    <div class="border-b border-slate-100 pb-4">
-                        <h2 class="font-bold text-slate-900 flex items-center gap-2"><i class="fa-solid fa-vault text-blue-600"></i> Valores e Contagens</h2>
-                    </div>
-                    <div class="p-4 rounded-2xl bg-red-50/40 border border-red-100/60 space-y-3">
-                        <h3 class="text-sm font-bold text-red-800 flex items-center gap-2"><i class="fa-solid fa-money-bill-wave"></i> Dinheiro (Gaveta)</h3>
-                        <div class="grid grid-cols-2 gap-3">
-                            <div><label class="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Sistema (R$)</label><input type="number" step="0.01" id="dinheiro-sistema" placeholder="0,00" class="w-full bg-white border border-slate-200 focus:border-blue-500 rounded-lg py-2 px-3 text-sm font-semibold outline-none text-right transition" required></div>
-                            <div><label class="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Físico Contado (R$)</label><input type="number" step="0.01" id="dinheiro-fisico" placeholder="0,00" class="w-full bg-white border border-slate-200 focus:border-blue-500 rounded-lg py-2 px-3 text-sm font-semibold outline-none text-right transition" required></div>
-                        </div>
-                    </div>
-                    <div class="p-4 rounded-2xl bg-sky-50/40 border border-sky-100/60 space-y-3">
-                        <h3 class="text-sm font-bold text-sky-800 flex items-center gap-2"><i class="fa-brands fa-pix"></i> Pix / Transferências (Conta)</h3>
-                        <div class="grid grid-cols-2 gap-3">
-                            <div><label class="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Sistema (R$)</label><input type="number" step="0.01" id="pix-sistema" placeholder="0,00" class="w-full bg-white border border-slate-200 focus:border-blue-500 rounded-lg py-2 px-3 text-sm font-semibold outline-none text-right transition" required></div>
-                            <div><label class="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Físico na Conta (R$)</label><input type="number" step="0.01" id="pix-fisico" placeholder="0,00" class="w-full bg-white border border-slate-200 focus:border-blue-500 rounded-lg py-2 px-3 text-sm font-semibold outline-none text-right transition" required></div>
-                        </div>
-                    </div>
-                    <div class="p-4 rounded-2xl bg-amber-50/40 border border-amber-100/60 space-y-3">
-                        <h3 class="text-sm font-bold text-amber-800 flex items-center gap-2"><i class="fa-solid fa-credit-card"></i> Cartão de Crédito</h3>
-                        <div class="grid grid-cols-2 gap-3">
-                            <div><label class="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Sistema (R$)</label><input type="number" step="0.01" id="credito-sistema" placeholder="0,00" class="w-full bg-white border border-slate-200 focus:border-blue-500 rounded-lg py-2 px-3 text-sm font-semibold outline-none text-right transition" required></div>
-                            <div><label class="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Na Máquina (R$)</label><input type="number" step="0.01" id="credito-fisico" placeholder="0,00" class="w-full bg-white border border-slate-200 focus:border-blue-500 rounded-lg py-2 px-3 text-sm font-semibold outline-none text-right transition" required></div>
-                        </div>
-                    </div>
-                    <div class="p-4 rounded-2xl bg-yellow-50/40 border border-yellow-100/60 space-y-3">
-                        <h3 class="text-sm font-bold text-yellow-800 flex items-center gap-2"><i class="fa-solid fa-credit-card"></i> Cartão de Débito</h3>
-                        <div class="grid grid-cols-2 gap-3">
-                            <div><label class="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Sistema (R$)</label><input type="number" step="0.01" id="debito-sistema" placeholder="0,00" class="w-full bg-white border border-slate-200 focus:border-blue-500 rounded-lg py-2 px-3 text-sm font-semibold outline-none text-right transition" required></div>
-                            <div><label class="text-[10px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Na Máquina (R$)</label><input type="number" step="0.01" id="debito-fisico" placeholder="0,00" class="w-full bg-white border border-slate-200 focus:border-blue-500 rounded-lg py-2 px-3 text-sm font-semibold outline-none text-right transition" required></div>
-                        </div>
-                    </div>
-                    <div class="flex gap-3">
-                        <button type="button" id="btn-cancelar-edicao" onclick="cancelarEdicaoCaixa()" class="hidden flex-1 py-3 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold rounded-xl text-sm transition">Cancelar Edição</button>
-                        <button type="submit" class="flex-1 py-3.5 bg-blue-600 hover:bg-blue-700 text-white font-bold rounded-xl shadow-lg shadow-blue-100 transition flex items-center justify-center gap-2 text-sm">
-                            <i class="fa-solid fa-cloud-arrow-up"></i> <span id="submit-fechamento-text">Salvar Fechamento Diário</span>
-                        </button>
-                    </div>
-                </div>
-            </form>
-        </div>
-
-        <!-- ABA 4: RETIRADAS -->
-        <div id="retiradas-tab" class="tab-content hidden space-y-5 fade-in">
-            <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
-                <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm h-fit">
-                    <h2 class="font-bold text-slate-900 text-base mb-4 flex items-center gap-2"><i class="fa-solid fa-hand-holding-dollar text-red-500"></i> Nova Retirada</h2>
-                    <form id="form-retirada" onsubmit="salvarRetirada(event)" class="space-y-3">
-                        <div><label class="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Data</label><input type="date" id="data-retirada" class="w-full bg-slate-50 border border-slate-200 focus:border-red-500 focus:bg-white rounded-xl py-2 px-3 text-sm font-semibold outline-none transition" required></div>
-                        <div><label class="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Tipo</label>
-                            <select id="categoria-retirada" class="w-full bg-slate-50 border border-slate-200 focus:border-red-500 focus:bg-white rounded-xl py-2 px-3 text-sm font-semibold outline-none transition" required>
-                                <option value="taxa_maquina">Taxa da Máquina</option>
-                                <option value="sangria">Sangria (Dinheiro)</option>
-                                <option value="saida_dia">Saídas do Dia</option>
-                                <option value="outros">Outros</option>
-                            </select>
-                        </div>
-                        <div><label class="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Valor (R$)</label><input type="number" step="0.01" id="valor-retirada" placeholder="0,00" class="w-full bg-slate-50 border border-slate-200 focus:border-red-500 focus:bg-white rounded-xl py-2 px-3 text-sm font-semibold outline-none text-right transition" required></div>
-                        <div><label class="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Descrição</label><input type="text" id="desc-retirada" placeholder="Ex: Pagamento fornecedor" class="w-full bg-slate-50 border border-slate-200 focus:border-red-500 focus:bg-white rounded-xl py-2 px-3 text-sm font-semibold outline-none transition" required></div>
-                        <button type="submit" class="w-full py-2.5 bg-red-600 hover:bg-red-700 text-white font-bold rounded-xl text-sm transition shadow-md shadow-red-100 flex items-center justify-center gap-2"><i class="fa-solid fa-plus"></i> Registrar</button>
-                    </form>
-                </div>
-                <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm lg:col-span-2 flex flex-col">
-                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4 mb-4">
-                        <h2 class="font-bold text-slate-900 text-base flex items-center gap-2"><i class="fa-solid fa-list-ul text-red-500"></i> Retiradas Registradas</h2>
-                        <div class="relative max-w-xs w-full"><i class="fa-solid fa-magnifying-glass absolute left-3 top-3 text-slate-400 text-xs"></i><input type="text" id="busca-retirada-desc" oninput="renderizarRetiradas()" placeholder="Filtrar..." class="w-full pl-8 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs outline-none focus:border-red-500 transition"></div>
-                    </div>
-                    <div class="flex gap-1.5 mb-4 overflow-x-auto pb-1">
-                        <button onclick="setRetiradaFilter('todos')" id="ret-filter-todos" class="ret-filter-btn chip-active px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 text-slate-500 transition whitespace-nowrap">Todas</button>
-                        <button onclick="setRetiradaFilter('taxa_maquina')" id="ret-filter-taxa_maquina" class="ret-filter-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 text-slate-500 hover:bg-slate-200 transition whitespace-nowrap">Taxas</button>
-                        <button onclick="setRetiradaFilter('sangria')" id="ret-filter-sangria" class="ret-filter-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 text-slate-500 hover:bg-slate-200 transition whitespace-nowrap">Sangrias</button>
-                        <button onclick="setRetiradaFilter('saida_dia')" id="ret-filter-saida_dia" class="ret-filter-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 text-slate-500 hover:bg-slate-200 transition whitespace-nowrap">Saídas</button>
-                        <button onclick="setRetiradaFilter('outros')" id="ret-filter-outros" class="ret-filter-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 text-slate-500 hover:bg-slate-200 transition whitespace-nowrap">Outros</button>
-                    </div>
-                    <div class="overflow-x-auto flex-1">
-                        <table class="w-full text-left">
-                            <thead><tr class="border-b border-slate-200 text-xs text-slate-400 uppercase tracking-wider"><th class="pb-3 font-semibold">Data</th><th class="pb-3 font-semibold">Categoria</th><th class="pb-3 font-semibold">Descrição</th><th class="pb-3 font-semibold text-right">Valor</th><th class="pb-3"></th></tr></thead>
-                            <tbody id="tabela-retiradas-corpo" class="divide-y divide-slate-100 text-sm"></tbody>
-                        </table>
-                        <div id="sem-retiradas-warning" class="hidden text-center py-10 text-slate-400 text-xs"><i class="fa-solid fa-folder-open text-3xl mb-2 block text-slate-200"></i>Nenhuma retirada encontrada.</div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- ABA 5: FIADOS -->
-        <div id="fiados-tab" class="tab-content hidden space-y-5 fade-in">
-            <div class="grid grid-cols-1 lg:grid-cols-3 gap-5">
-                <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm h-fit">
-                    <h2 class="font-bold text-slate-900 text-base mb-4 flex items-center gap-2"><i class="fa-solid fa-user-plus text-orange-500"></i> Novo Fiado</h2>
-                    <form id="form-fiado" onsubmit="salvarFiado(event)" class="space-y-3">
-                        <div><label class="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Data</label><input type="date" id="data-fiado" class="w-full bg-slate-50 border border-slate-200 focus:border-orange-500 focus:bg-white rounded-xl py-2 px-3 text-sm font-semibold outline-none transition" required></div>
-                        <div><label class="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Nome do Cliente</label><input type="text" id="cliente-fiado" placeholder="Ex: João Silva" class="w-full bg-slate-50 border border-slate-200 focus:border-orange-500 focus:bg-white rounded-xl py-2 px-3 text-sm font-semibold outline-none transition" required></div>
-                        <div><label class="text-[11px] font-bold text-slate-500 uppercase tracking-wider block mb-1">Valor (R$)</label><input type="number" step="0.01" id="valor-fiado" placeholder="0,00" class="w-full bg-slate-50 border border-slate-200 focus:border-orange-500 focus:bg-white rounded-xl py-2 px-3 text-sm font-semibold outline-none text-right transition" required></div>
-                        <button type="submit" class="w-full py-2.5 bg-orange-600 hover:bg-orange-700 text-white font-bold rounded-xl text-sm transition shadow-md shadow-orange-100 flex items-center justify-center gap-2"><i class="fa-solid fa-user-tag"></i> Registrar Fiado</button>
-                    </form>
-                </div>
-                <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm lg:col-span-2 flex flex-col">
-                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-3 border-b border-slate-100 pb-4 mb-4">
-                        <h2 class="font-bold text-slate-900 text-base flex items-center gap-2"><i class="fa-solid fa-list-check text-orange-500"></i> Carteira de Clientes</h2>
-                        <div class="relative max-w-xs w-full"><i class="fa-solid fa-magnifying-glass absolute left-3 top-3 text-slate-400 text-xs"></i><input type="text" id="busca-fiado-nome" oninput="renderizarFiados()" placeholder="Buscar cliente..." class="w-full pl-8 pr-3 py-2 bg-slate-50 border border-slate-200 rounded-xl text-xs outline-none focus:border-orange-500 transition"></div>
-                    </div>
-                    <div class="flex gap-2 mb-4">
-                        <button onclick="setFiadoFilter('todos')" id="fiado-filter-todos" class="fiado-filter-btn chip-active px-3 py-1.5 rounded-lg text-xs font-semibold transition">Todos</button>
-                        <button onclick="setFiadoFilter('pendente')" id="fiado-filter-pendente" class="fiado-filter-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 text-slate-500 hover:bg-slate-200 transition">Pendentes</button>
-                        <button onclick="setFiadoFilter('pago')" id="fiado-filter-pago" class="fiado-filter-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 text-slate-500 hover:bg-slate-200 transition">Quitados</button>
-                    </div>
-                    <div class="overflow-x-auto flex-1">
-                        <table class="w-full text-left">
-                            <thead><tr class="border-b border-slate-200 text-xs text-slate-400 uppercase tracking-wider"><th class="pb-3 font-semibold">Cliente</th><th class="pb-3 font-semibold">Data</th><th class="pb-3 font-semibold text-right">Valor</th><th class="pb-3 font-semibold text-center">Status</th><th class="pb-3"></th></tr></thead>
-                            <tbody id="tabela-fiados-corpo" class="divide-y divide-slate-100 text-sm"></tbody>
-                        </table>
-                        <div id="sem-fiados-warning" class="hidden text-center py-8 text-slate-400 text-xs"><i class="fa-solid fa-folder-open text-3xl mb-2 block text-slate-200"></i>Nenhum fiado para este filtro.</div>
-                    </div>
-                </div>
-            </div>
-        </div>
-
-        <!-- ABA 6: HISTÓRICO -->
-        <div id="historico-tab" class="tab-content hidden space-y-5 fade-in">
-            <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
-                <div>
-                    <h2 class="font-bold text-slate-900 text-base flex items-center gap-2"><i class="fa-solid fa-filter text-blue-600"></i> Histórico de Fechamentos</h2>
-                    <p class="text-xs text-slate-400">Consulte, edite e exporte registros de caixa</p>
-                </div>
-                <div class="flex flex-wrap items-center gap-2">
-                    <select id="tipo-filtro" onchange="toggleFiltroInputs()" class="bg-slate-50 border border-slate-200 rounded-xl py-2 px-3 text-xs font-semibold outline-none focus:border-blue-500 transition">
-                        <option value="todos">Todo o Histórico</option><option value="dia">Por Dia</option><option value="mes">Por Mês</option>
-                    </select>
-                    <input type="date" id="busca-dia" onchange="renderizarRelatorioCompleto()" class="hidden bg-slate-50 border border-slate-200 rounded-xl py-1.5 px-3 text-xs font-semibold outline-none">
-                    <input type="month" id="busca-mes" onchange="renderizarRelatorioCompleto()" class="hidden bg-slate-50 border border-slate-200 rounded-xl py-1.5 px-3 text-xs font-semibold outline-none">
-                    <button onclick="exportarCSV()" class="bg-slate-100 hover:bg-slate-200 text-slate-700 font-semibold text-xs py-2 px-3.5 rounded-lg flex items-center gap-1.5 transition"><i class="fa-solid fa-file-excel text-emerald-600"></i> Exportar CSV</button>
-                </div>
-            </div>
-            <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
-                <div class="overflow-x-auto">
-                    <table class="w-full text-left">
-                        <thead><tr class="border-b border-slate-200 text-xs text-slate-400 uppercase tracking-wider"><th class="pb-3 font-semibold">Data</th><th class="pb-3 font-semibold">Forma</th><th class="pb-3 font-semibold text-right">Sistema</th><th class="pb-3 font-semibold text-right">Físico/Máq.</th><th class="pb-3 font-semibold text-right">Diferença</th><th class="pb-3 font-semibold text-center">Status</th><th class="pb-3 font-semibold text-right">Ações</th></tr></thead>
-                        <tbody id="tabela-historico-corpo" class="divide-y divide-slate-100 text-sm"></tbody>
-                    </table>
-                    <div id="sem-fechamentos-warning" class="hidden text-center py-12 text-slate-400 text-xs"><i class="fa-solid fa-box-open text-4xl mb-2 block text-slate-200"></i>Nenhum registro encontrado.</div>
-                </div>
-            </div>
-        </div>
-
-        <!-- ABA 7: GRÁFICOS -->
-        <div id="graficos-tab" class="tab-content hidden space-y-5 fade-in">
-            <div class="bg-white p-4 rounded-2xl border border-slate-200 flex flex-wrap items-center justify-between gap-4">
-                <div>
-                    <h2 class="font-bold text-slate-900 text-base flex items-center gap-2"><i class="fa-solid fa-chart-bar text-emerald-600"></i> Análise Visual</h2>
-                    <p class="text-xs text-slate-400">Evolução e composição das receitas</p>
-                </div>
-                <div class="inline-flex rounded-lg bg-slate-100 p-0.5 gap-0.5">
-                    <button onclick="setGraficoPeriod('7d')" id="graf-p-7d" class="graf-period-btn px-3 py-1.5 rounded-md text-xs font-semibold bg-white text-slate-800 shadow-sm transition">7 dias</button>
-                    <button onclick="setGraficoPeriod('30d')" id="graf-p-30d" class="graf-period-btn px-3 py-1.5 rounded-md text-xs font-semibold text-slate-500 transition">30 dias</button>
-                    <button onclick="setGraficoPeriod('todos')" id="graf-p-todos" class="graf-period-btn px-3 py-1.5 rounded-md text-xs font-semibold text-slate-500 transition">Tudo</button>
-                </div>
-            </div>
-            <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
-                <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
-                    <h3 class="font-bold text-slate-900 text-sm mb-4 flex items-center gap-2"><i class="fa-solid fa-chart-line text-blue-500"></i> Evolução Diária de Receita</h3>
-                    <div class="relative h-56"><canvas id="chart-evolucao"></canvas><div id="chart-evolucao-empty" class="absolute inset-0 flex items-center justify-center text-slate-400 text-xs text-center"><div><i class="fa-solid fa-chart-line text-2xl block mb-2 text-slate-200"></i>Sem dados suficientes</div></div></div>
-                </div>
-                <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
-                    <h3 class="font-bold text-slate-900 text-sm mb-4 flex items-center gap-2"><i class="fa-solid fa-chart-pie text-purple-500"></i> Composição por Forma de Pagamento</h3>
-                    <div class="relative h-56 flex items-center justify-center"><canvas id="chart-formas" style="max-height:224px;max-width:224px;"></canvas><div id="chart-formas-empty" class="absolute inset-0 flex items-center justify-center text-slate-400 text-xs text-center"><div><i class="fa-solid fa-chart-pie text-2xl block mb-2 text-slate-200"></i>Sem dados suficientes</div></div></div>
-                </div>
-                <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
-                    <h3 class="font-bold text-slate-900 text-sm mb-4 flex items-center gap-2"><i class="fa-solid fa-chart-bar text-red-500"></i> Retiradas por Categoria</h3>
-                    <div class="relative h-56"><canvas id="chart-retiradas"></canvas><div id="chart-retiradas-empty" class="absolute inset-0 flex items-center justify-center text-slate-400 text-xs text-center"><div><i class="fa-solid fa-chart-bar text-2xl block mb-2 text-slate-200"></i>Sem dados de retiradas</div></div></div>
-                </div>
-                <div class="bg-white p-5 rounded-2xl border border-slate-200 shadow-sm">
-                    <h3 class="font-bold text-slate-900 text-sm mb-4 flex items-center gap-2"><i class="fa-solid fa-ranking-star text-orange-500"></i> Maiores Devedores (Fiado)</h3>
-                    <div id="ranking-fiados" class="space-y-3"><div class="text-center py-8 text-slate-400 text-xs"><i class="fa-solid fa-user-slash text-2xl block mb-2 text-slate-200"></i>Nenhum fiado pendente</div></div>
-                </div>
-            </div>
-        </div>
-
-    </main>
-</div>
+    <div id="rel" class="space-y-4"></div>
+  </section>
+</main>
 
 <script type="importmap">
-{
-  "imports": {
-    "firebase/app":       "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js",
-    "firebase/auth":      "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js",
-    "firebase/firestore": "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js"
-  }
-}
+{"imports":{
+  "firebase/app":"https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js",
+  "firebase/auth":"https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js",
+  "firebase/firestore":"https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js"}}
 </script>
 <script type="module">
-    import { initializeApp }  from "firebase/app";
-    import { getAuth, signInWithCustomToken, signInAnonymously, onAuthStateChanged } from "firebase/auth";
-    import { getFirestore, doc, setDoc, collection, onSnapshot, deleteDoc } from "firebase/firestore";
-
-    const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : {
-        apiKey: "AIzaSyAZN-1E2MpiKl9TQeUtHfbmBU729Dk5VbQ",
-        authDomain: "margestch.firebaseapp.com",
-        projectId: "margestch",
-        storageBucket: "margestch.firebasestorage.app",
-        messagingSenderId: "68222331424",
-        appId: "1:68222331424:web:17b102bc69bed9c58caa45"
-    };
-
-    const app = initializeApp(firebaseConfig);
-    const auth = getAuth(app);
-    const db = getFirestore(app);
-    const colId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
-
-    const colMovimentacoes = collection(db, 'artifacts', colId, 'public', 'data', 'movimentacoes');
-    const colFiados       = collection(db, 'artifacts', colId, 'public', 'data', 'fiados');
-    const colRetiradas    = collection(db, 'artifacts', colId, 'public', 'data', 'retiradas');
-
-    // ── ESTADO GLOBAL ──────────────────────────────────────────
-    let movimentacoes = [], fiados = [], retiradas = [];
-    let analiseAtual = null, idEdicaoAtiva = null, activeTab = 'dashboard-tab';
-    let currentDashPeriod = 'hoje', currentFiadosFilter = 'todos', currentRetiradasFilter = 'todos';
-    let currentGraficoPeriod = '7d';
-    let chartEvolucao = null, chartFormas = null, chartRetiradas = null;
-
-    // ── TABELA DE PREÇOS (localStorage) ────────────────────────
-    const PRECOS_KEY = 'marigest_tabela_precos_v2';
-    const precosDefault = {
-        "império":         { unitario: 6.00,  pack: 52.00, alias: "Império Long Neck" },
-        "imperio":         { unitario: 6.00,  pack: 52.00, alias: "Império Long Neck" },
-        "itaipava":        { unitario: 4.00,  pack: 35.00, alias: "Itaipava Lata 350ml" },
-        "devassa":         { unitario: 3.00,  pack: 36.00, alias: "Devassa Lata 350ml" },
-        "caltron":         { unitario: 2.00,  pack: 18.00, alias: "Caltron" },
-        "hotmas vermelho": { unitario: 1.00,  pack: 10.00, alias: "Hotmas Vermelho" },
-        "hotmas azul":     { unitario: 1.00,  pack: 10.00, alias: "Hotmas Azul" },
-        "hotmas":          { unitario: 1.00,  pack: 10.00, alias: "Hotmas" },
-        "heineken":        { unitario: 8.00,  pack: 96.00, alias: "Heineken Long Neck 330ml" },
-        "cristal":         { unitario: 3.00,  pack: 36.00, alias: "Cristal Lata 350ml" },
-        "budweiser":       { unitario: 6.00,  pack: 72.00, alias: "Budweiser Lata 350ml" }
-    };
-
-    function carregarPrecos() {
-        try {
-            const s = localStorage.getItem(PRECOS_KEY);
-            return s ? JSON.parse(s) : { ...precosDefault };
-        } catch { return { ...precosDefault }; }
-    }
-    function salvarPrecos(p) {
-        try { localStorage.setItem(PRECOS_KEY, JSON.stringify(p)); } catch {}
-    }
-
-    window.abrirModalPrecos = function() {
-        renderizarTabelaPrecos();
-        const m = document.getElementById('precos-modal');
-        m.classList.remove('hidden'); m.classList.add('flex');
-    };
-    window.fecharModalPrecos = function() {
-        const m = document.getElementById('precos-modal');
-        m.classList.add('hidden'); m.classList.remove('flex');
-    };
-
-    function renderizarTabelaPrecos() {
-        const precos = carregarPrecos();
-        const corpo = document.getElementById('precos-corpo');
-        corpo.innerHTML = '';
-        Object.entries(precos).forEach(([chave, v]) => {
-            const tr = document.createElement('tr');
-            tr.className = 'hover:bg-slate-50 transition';
-            tr.innerHTML = `
-                <td class="py-2 px-1">
-                    <div class="font-semibold text-slate-800 text-sm">${v.alias}</div>
-                    <div class="text-[10px] text-slate-400 font-mono">${chave}</div>
-                </td>
-                <td class="py-2 px-1 text-right">
-                    <input type="number" step="0.01" value="${v.unitario.toFixed(2)}"
-                        data-chave="${chave}" data-campo="unitario"
-                        class="w-20 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 text-xs font-bold text-right outline-none focus:border-purple-500 transition preco-input">
-                </td>
-                <td class="py-2 px-1 text-right">
-                    <input type="number" step="0.01" value="${v.pack.toFixed(2)}"
-                        data-chave="${chave}" data-campo="pack"
-                        class="w-20 bg-slate-50 border border-slate-200 rounded-lg px-2 py-1 text-xs font-bold text-right outline-none focus:border-purple-500 transition preco-input">
-                </td>
-                <td class="py-2 px-1 text-center">
-                    <button onclick="removerProduto('${chave}')"
-                        class="text-rose-400 hover:text-rose-600 transition text-xs font-bold px-2 py-1 hover:bg-rose-50 rounded-lg">
-                        <i class="fa-solid fa-trash-can"></i>
-                    </button>
-                </td>`;
-            corpo.appendChild(tr);
-        });
-
-        document.querySelectorAll('.preco-input').forEach(input => {
-            input.addEventListener('change', () => {
-                const precos = carregarPrecos();
-                const chave  = input.dataset.chave;
-                const campo  = input.dataset.campo;
-                precos[chave][campo] = parseFloat(input.value) || 0;
-                salvarPrecos(precos);
-                showToast('Preço atualizado!', 'success');
-            });
-        });
-    }
-
-    window.removerProduto = function(chave) {
-        const precos = carregarPrecos();
-        delete precos[chave];
-        salvarPrecos(precos);
-        renderizarTabelaPrecos();
-        showToast('Produto removido.', 'info');
-    };
-
-    window.adicionarProduto = function() {
-        const chave = document.getElementById('novo-chave').value.trim().toLowerCase();
-        const alias = document.getElementById('novo-alias').value.trim();
-        const unit  = parseFloat(document.getElementById('novo-unit').value) || 0;
-        const pack  = parseFloat(document.getElementById('novo-pack').value) || 0;
-        if (!chave || !alias) { showToast('Preencha a palavra-chave e o nome.', 'danger'); return; }
-        const precos = carregarPrecos();
-        precos[chave] = { unitario: unit, pack, alias };
-        salvarPrecos(precos);
-        ['novo-chave','novo-alias','novo-unit','novo-pack'].forEach(id => document.getElementById(id).value = '');
-        renderizarTabelaPrecos();
-        showToast('Produto adicionado!', 'success');
-    };
-
-    // ── FIREBASE AUTH ───────────────────────────────────────────
-    async function initAuth() {
-        try {
-            if (typeof __initial_auth_token !== 'undefined' && __initial_auth_token) {
-                await signInWithCustomToken(auth, __initial_auth_token);
-            } else {
-                await signInAnonymously(auth);
-            }
-        } catch(err) {
-            console.error('Erro na autenticação do Firebase:', err);
-            setStatus('bg-rose-50 text-rose-700 border-rose-200',
-                '<i class="fa-solid fa-cloud-slash"></i><span>Sem nuvem</span>');
-            modoOffline();
-        }
-    }
-    initAuth();
-
-    function modoOffline() {
-        setStatus('bg-slate-100 text-slate-600 border-slate-200',
-            '<i class="fa-solid fa-hard-drive"></i><span>Modo Local</span>');
-        // Carrega do localStorage como fallback
-        try {
-            const mv = localStorage.getItem('mg_movimentacoes');
-            const fi = localStorage.getItem('mg_fiados');
-            const re = localStorage.getItem('mg_retiradas');
-            if (mv) movimentacoes = JSON.parse(mv);
-            if (fi) fiados        = JSON.parse(fi);
-            if (re) retiradas     = JSON.parse(re);
-        } catch {}
-        renderizarTudo();
-        // Sobrescreve funções de escrita para salvar local
-        window._modoOffline = true;
-    }
-
-    function setStatus(cls, html) {
-        const el = document.getElementById('firebase-status');
-        el.className = `flex items-center gap-1.5 py-1.5 px-3 rounded-lg text-xs font-semibold border ${cls}`;
-        el.innerHTML = html;
-    }
-
-    onAuthStateChanged(auth, user => {
-        if (!user) return;
-        setStatus('bg-emerald-50 text-emerald-700 border-emerald-200',
-            '<i class="fa-solid fa-cloud animate-pulse text-emerald-500"></i><span>Nuvem Ativa</span>');
-
-        onSnapshot(colMovimentacoes, snap => {
-            movimentacoes = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-            renderizarTudo();
-        });
-        onSnapshot(colFiados, snap => {
-            fiados = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-            renderizarTudo();
-        });
-        onSnapshot(colRetiradas, snap => {
-            retiradas = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-            renderizarTudo();
-        });
-    });
-
-    // ── UTILITÁRIOS ─────────────────────────────────────────────
-    const fmtR = v => (v||0).toLocaleString('pt-BR',{style:'currency',currency:'BRL'});
-    function fmtBR(s) {
-        if (!s) return '-';
-        const [y,m,d] = s.split('-');
-        return `${d}/${m}/${y}`;
-    }
-
-    let confirmCb = null;
-    window.closeConfirmModal = function(ok) {
-        document.getElementById('confirm-modal').classList.replace('flex','hidden');
-        if (ok && confirmCb) confirmCb();
-        confirmCb = null;
-    };
-    function showConfirm(title, body, cb) {
-        document.getElementById('confirm-title').textContent = title;
-        document.getElementById('confirm-body').textContent  = body;
-        confirmCb = cb;
-        const m = document.getElementById('confirm-modal');
-        m.classList.remove('hidden'); m.classList.add('flex');
-        document.getElementById('confirm-yes-btn').onclick = () => window.closeConfirmModal(true);
-    }
-
-    let toastTimer;
-    function showToast(msg, type='success') {
-        const toast = document.getElementById('toast');
-        const icon  = document.getElementById('toast-icon');
-        const msgEl = document.getElementById('toast-message');
-        const ic    = document.getElementById('toast-icon-container');
-        msgEl.textContent = msg;
-        const cfg = {
-            success: { i:'fa-circle-check',    cls:'bg-emerald-100 text-emerald-600' },
-            danger:  { i:'fa-circle-xmark',    cls:'bg-red-100 text-red-600' },
-            info:    { i:'fa-circle-info',      cls:'bg-blue-100 text-blue-600' }
-        }[type] || { i:'fa-circle-info', cls:'bg-blue-100 text-blue-600' };
-        icon.className = `fa-solid ${cfg.i}`;
-        ic.className   = `inline-flex flex-shrink-0 justify-center items-center w-8 h-8 rounded-lg ${cfg.cls}`;
-        toast.style.transform = 'translateY(0)';
-        clearTimeout(toastTimer);
-        toastTimer = setTimeout(() => { toast.style.transform = 'translateY(-150%)'; }, 3200);
-    }
-
-    function configurarDatasIniciais() {
-        const hoje = new Date();
-        document.getElementById('current-date-header').textContent = hoje.toLocaleDateString('pt-BR');
-        const dia = hoje.toISOString().split('T')[0];
-        ['data-movimento','data-retirada','data-fiado'].forEach(id => {
-            const el = document.getElementById(id);
-            if (el) el.value = dia;
-        });
-    }
-    configurarDatasIniciais();
-
-    // ── NAVEGAÇÃO ───────────────────────────────────────────────
-    window.switchTab = function(tabId) {
-        document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
-        const tab = document.getElementById(tabId);
-        tab.classList.remove('hidden');
-        tab.classList.add('fade-in');
-        document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('tab-active'));
-        document.getElementById(`btn-${tabId}`)?.classList.add('tab-active');
-        activeTab = tabId;
-        if (tabId === 'graficos-tab') renderizarGraficos();
-    };
-
-    function renderizarTudo() {
-        renderizarDashboard();
-        if (activeTab === 'fiados-tab')   renderizarFiados();
-        if (activeTab === 'retiradas-tab') renderizarRetiradas();
-        if (activeTab === 'historico-tab') renderizarRelatorioCompleto();
-        if (activeTab === 'graficos-tab')  renderizarGraficos();
-    }
-
-    // ── LEITOR DE RELATÓRIO ─────────────────────────────────────
-    window.processarRelatorioTexto = function() {
-        const text = document.getElementById('raw-report-text').value;
-        if (!text.trim()) { showToast('Cole um relatório para auditar.','danger'); return; }
-
-        const tabelaPrecos = carregarPrecos();
-        let totalEstoque = 0, totalFat = 0;
-        let produtos = {};
-        let fin = { dinheiro:0, pix:0, credito:0, debito:0, fiado:0 };
-
-        text.split(/#\d+\s*\|/).forEach(bloco => {
-            bloco = bloco.trim();
-            if (!bloco) return;
-            const cab = bloco.split('\n')[0].toLowerCase();
-            let metodo = 'dinheiro', misto = false;
-            if (cab.includes('dinheiro+pix'))                                            misto = true;
-            else if (cab.includes('pix'))                                                metodo = 'pix';
-            else if (cab.includes('crédito')||cab.includes('credito')||cab.includes('cartão')) metodo = 'credito';
-            else if (cab.includes('débito')||cab.includes('debito'))                    metodo = 'debito';
-            else if (cab.includes('fiado'))                                              metodo = 'fiado';
-
-            const mTotal = bloco.match(/TOTAL:\s*(?:R\$\s*)?([\d.,]+)/i);
-            if (mTotal) {
-                const tv = parseFloat(mTotal[1].replace(/\./g,'').replace(',','.'));
-                if (misto) { fin.dinheiro += tv/2; fin.pix += tv/2; }
-                else fin[metodo] += tv;
-                totalFat += tv;
-            }
-
-            bloco.split('\n').forEach(linha => {
-                const m = linha.match(/·\s*([^x\n]+?)\s+x(\d+)\s+(?:R\$\s*)?([\d.,]+)/i);
-                if (!m) return;
-                let nomNorm = m[1].trim().toLowerCase();
-                let qtd     = parseInt(m[2]);
-                let totL    = parseFloat(m[3].replace(/\./g,'').replace(',','.'));
-                let unitReg = totL / qtd;
-                let fisicas = qtd, tipo = 'Unidade', unitReal = unitReg, alias = m[1].trim();
-
-                for (let chave in tabelaPrecos) {
-                    if (nomNorm.includes(chave)) {
-                        const pc = tabelaPrecos[chave];
-                        alias = pc.alias;
-                        if (Math.abs(unitReg - pc.pack) < Math.abs(unitReg - pc.unitario)) {
-                            fisicas = qtd * 12; tipo = 'Pack (12 un)'; unitReal = pc.pack;
-                        } else {
-                            tipo = 'Unidade'; unitReal = pc.unitario;
-                        }
-                        break;
-                    }
-                }
-                const key = alias + ' — ' + tipo;
-                if (!produtos[key]) produtos[key] = { nome:alias, tipo, qtd:0, fat:0, unit:unitReal };
-                produtos[key].qtd += fisicas;
-                produtos[key].fat += totL;
-                totalEstoque += fisicas;
-            });
-        });
-
-        document.getElementById('leitor-total-fat').textContent    = fmtR(totalFat);
-        document.getElementById('leitor-total-itens').textContent   = `${totalEstoque} un.`;
-        document.getElementById('leitor-produtos-distintos').textContent = `${Object.keys(produtos).length} tipos`;
-        document.getElementById('leitor-meio-dinheiro').textContent = fmtR(fin.dinheiro);
-        document.getElementById('leitor-meio-pix').textContent      = fmtR(fin.pix);
-        document.getElementById('leitor-meio-credito').textContent  = fmtR(fin.credito);
-        document.getElementById('leitor-meio-debito').textContent   = fmtR(fin.debito);
-        document.getElementById('leitor-meio-fiado').textContent    = fmtR(fin.fiado);
-
-        const corpo = document.getElementById('tabela-leitor-corpo');
-        corpo.innerHTML = '';
-        Object.values(produtos).forEach(item => {
-            const isPack = item.tipo.includes('Pack');
-            const badgeCls = isPack
-                ? 'bg-purple-50 text-purple-700 border-purple-100'
-                : 'bg-slate-100 text-slate-600 border-slate-200';
-            const tr = document.createElement('tr');
-            tr.className = 'hover:bg-slate-50 transition-colors';
-            tr.innerHTML = `
-                <td class="p-2.5 font-semibold text-slate-800">${item.nome}</td>
-                <td class="p-2.5"><span class="inline-flex px-2 py-0.5 rounded text-[10px] font-bold border ${badgeCls}">${item.tipo}</span></td>
-                <td class="p-2.5 text-center font-bold text-slate-900">${item.qtd}</td>
-                <td class="p-2.5 text-right text-slate-500">${fmtR(item.unit)}</td>
-                <td class="p-2.5 text-right font-bold text-slate-900">${fmtR(item.fat)}</td>`;
-            corpo.appendChild(tr);
-        });
-
-        const btn = document.getElementById('btn-aplicar-fechamento');
-        btn.removeAttribute('disabled');
-        btn.className = 'py-2 px-3.5 bg-purple-600 hover:bg-purple-700 text-white font-bold rounded-xl text-xs transition flex items-center gap-1.5 shadow-md shadow-purple-100';
-        analiseAtual = fin;
-        window._caixaAuditado = fin;
-        showToast('Relatório auditado com sucesso!', 'success');
-    };
-
-    window.aplicarAoFechamento = function() {
-        if (!analiseAtual) return;
-        document.getElementById('dinheiro-sistema').value = analiseAtual.dinheiro.toFixed(2);
-        document.getElementById('pix-sistema').value      = analiseAtual.pix.toFixed(2);
-        document.getElementById('credito-sistema').value  = analiseAtual.credito.toFixed(2);
-        document.getElementById('debito-sistema').value   = analiseAtual.debito.toFixed(2);
-        showToast('Valores integrados ao fechamento!', 'info');
-        switchTab('lancamentos-tab');
-    };
-
-    window.limparLeitor = function() {
-        document.getElementById('raw-report-text').value = '';
-        ['leitor-total-fat','leitor-total-itens','leitor-produtos-distintos',
-         'leitor-meio-dinheiro','leitor-meio-pix','leitor-meio-credito',
-         'leitor-meio-debito','leitor-meio-fiado'].forEach(id => {
-            const el = document.getElementById(id);
-            if (el) el.textContent = id.includes('itens') ? '0 un.' : id.includes('distintos') ? '0 tipos' : 'R$ 0,00';
-        });
-        document.getElementById('tabela-leitor-corpo').innerHTML =
-            '<tr><td colspan="5" class="p-8 text-center text-slate-400 italic">Processe um relatório para ver os resultados.</td></tr>';
-        const btn = document.getElementById('btn-aplicar-fechamento');
-        btn.setAttribute('disabled','');
-        btn.className = 'py-2 px-3.5 bg-slate-100 text-slate-400 font-bold rounded-xl text-xs flex items-center gap-1.5 cursor-not-allowed';
-        analiseAtual = null;
-    };
-
-    // ── FECHAMENTO ──────────────────────────────────────────────
-    window.salvarFechamento = async function(e) {
-        e.preventDefault();
-        if (!auth.currentUser && !window._modoOffline) return;
-        if (window._modoOffline) {
-            const id = Date.now().toString();
-            const f = {
-                id, data: document.getElementById('data-movimento').value,
-                dinheiro: { sistema: +document.getElementById('dinheiro-sistema').value||0, fisico: +document.getElementById('dinheiro-fisico').value||0 },
-                pix:      { sistema: +document.getElementById('pix-sistema').value||0,      fisico: +document.getElementById('pix-fisico').value||0 },
-                credito:  { sistema: +document.getElementById('credito-sistema').value||0,  fisico: +document.getElementById('credito-fisico').value||0 },
-                debito:   { sistema: +document.getElementById('debito-sistema').value||0,   fisico: +document.getElementById('debito-fisico').value||0 }
-            };
-            const idx = movimentacoes.findIndex(m => m.id === (idEdicaoAtiva || ''));
-            if (idx >= 0) movimentacoes[idx] = f; else movimentacoes.push(f);
-            localStorage.setItem('mg_movimentacoes', JSON.stringify(movimentacoes));
-            showToast('Fechamento salvo localmente!','success');
-            cancelarEdicaoCaixa(); switchTab('dashboard-tab'); renderizarTudo(); return;
-        }
-        const id = idEdicaoAtiva || Date.now().toString();
-        const f = {
-            id, data: document.getElementById('data-movimento').value,
-            dinheiro: { sistema: +document.getElementById('dinheiro-sistema').value||0, fisico: +document.getElementById('dinheiro-fisico').value||0 },
-            pix:      { sistema: +document.getElementById('pix-sistema').value||0,      fisico: +document.getElementById('pix-fisico').value||0 },
-            credito:  { sistema: +document.getElementById('credito-sistema').value||0,  fisico: +document.getElementById('credito-fisico').value||0 },
-            debito:   { sistema: +document.getElementById('debito-sistema').value||0,   fisico: +document.getElementById('debito-fisico').value||0 }
-        };
-        try {
-            await setDoc(doc(db,'artifacts',colId,'public','data','movimentacoes',id), f);
-            showToast('Fechamento salvo na nuvem!','success');
-            cancelarEdicaoCaixa();
-            switchTab('dashboard-tab');
-        } catch { showToast('Erro ao salvar.','danger'); }
-    };
-
-    window.excluirMovimentacao = async function(id) {
-        showConfirm('Excluir Fechamento?','Esta ação é permanente. Deseja continuar?', async () => {
-            if (window._modoOffline) {
-                movimentacoes = movimentacoes.filter(m => m.id !== id);
-                localStorage.setItem('mg_movimentacoes', JSON.stringify(movimentacoes));
-                showToast('Fechamento excluído.','danger'); renderizarTudo(); return;
-            }
-            try {
-                await deleteDoc(doc(db,'artifacts',colId,'public','data','movimentacoes',id));
-                showToast('Fechamento excluído.','danger');
-            } catch { showToast('Erro ao excluir.','danger'); }
-        });
-    };
-
-    window.habilitarEdicaoCaixa = function(id) {
-        const item = movimentacoes.find(m => m.id === id);
-        if (!item) return;
-        idEdicaoAtiva = id;
-        document.getElementById('data-movimento').value = item.data;
-        ['dinheiro','pix','credito','debito'].forEach(f => {
-            document.getElementById(`${f}-sistema`).value = item[f]?.sistema||0;
-            document.getElementById(`${f}-fisico`).value  = item[f]?.fisico||0;
-        });
-        document.getElementById('edit-indicator').classList.remove('hidden');
-        document.getElementById('btn-cancelar-edicao').classList.remove('hidden');
-        document.getElementById('submit-fechamento-text').textContent = 'Atualizar Fechamento';
-        showToast('Fechamento carregado para edição.','info');
-        switchTab('lancamentos-tab');
-    };
-
-    window.cancelarEdicaoCaixa = function() {
-        idEdicaoAtiva = null;
-        document.getElementById('form-fechamento').reset();
-        configurarDatasIniciais();
-        document.getElementById('edit-indicator').classList.add('hidden');
-        document.getElementById('btn-cancelar-edicao').classList.add('hidden');
-        document.getElementById('submit-fechamento-text').textContent = 'Salvar Fechamento Diário';
-    };
-
-    // ── RETIRADAS ───────────────────────────────────────────────
-    const categLabel  = { taxa_maquina:'Taxa Máquina', sangria:'Sangria', saida_dia:'Saída do Dia', outros:'Outros' };
-    const categColors = { taxa_maquina:'bg-amber-50 text-amber-700', sangria:'bg-red-50 text-red-700', saida_dia:'bg-blue-50 text-blue-700', outros:'bg-slate-100 text-slate-700' };
-
-    window.setRetiradaFilter = function(f) {
-        currentRetiradasFilter = f;
-        document.querySelectorAll('.ret-filter-btn').forEach(btn =>
-            btn.className = 'ret-filter-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 text-slate-500 hover:bg-slate-200 transition whitespace-nowrap');
-        document.getElementById(`ret-filter-${f}`).className =
-            'ret-filter-btn chip-active px-3 py-1.5 rounded-lg text-xs font-semibold transition whitespace-nowrap';
-        renderizarRetiradas();
-    };
-
-    window.salvarRetirada = async function(e) {
-        e.preventDefault();
-        if (!auth.currentUser && !window._modoOffline) return;
-        if (window._modoOffline) {
-            const nova = { id: Date.now().toString(), data: document.getElementById('data-retirada').value,
-                categoria: document.getElementById('categoria-retirada').value,
-                valor: +document.getElementById('valor-retirada').value||0,
-                desc: document.getElementById('desc-retirada').value.trim() };
-            retiradas.push(nova);
-            localStorage.setItem('mg_retiradas', JSON.stringify(retiradas));
-            document.getElementById('form-retirada').reset(); configurarDatasIniciais();
-            showToast('Retirada salva localmente!','success'); renderizarTudo(); return;
-        }
-        const id = Date.now().toString();
-        const nova = {
-            id, data: document.getElementById('data-retirada').value,
-            categoria: document.getElementById('categoria-retirada').value,
-            valor: +document.getElementById('valor-retirada').value||0,
-            desc: document.getElementById('desc-retirada').value.trim()
-        };
-        try {
-            await setDoc(doc(db,'artifacts',colId,'public','data','retiradas',id), nova);
-            document.getElementById('form-retirada').reset();
-            configurarDatasIniciais();
-            showToast('Retirada registrada!','success');
-        } catch { showToast('Erro ao registrar.','danger'); }
-    };
-
-    window.excluirRetirada = async function(id) {
-        showConfirm('Excluir Retirada?','Esta ação é permanente.', async () => {
-            if (window._modoOffline) {
-                retiradas = retiradas.filter(r => r.id !== id);
-                localStorage.setItem('mg_retiradas', JSON.stringify(retiradas));
-                showToast('Retirada excluída.','danger'); renderizarTudo(); return;
-            }
-            try {
-                await deleteDoc(doc(db,'artifacts',colId,'public','data','retiradas',id));
-                showToast('Retirada excluída.','danger');
-            } catch { showToast('Erro ao excluir.','danger'); }
-        });
-    };
-
-    window.renderizarRetiradas = function() {
-        const corpo   = document.getElementById('tabela-retiradas-corpo');
-        const warning = document.getElementById('sem-retiradas-warning');
-        const busca   = (document.getElementById('busca-retirada-desc').value||'').toLowerCase();
-        let filtradas = [...retiradas];
-        if (currentRetiradasFilter !== 'todos') filtradas = filtradas.filter(r => r.categoria === currentRetiradasFilter);
-        if (busca) filtradas = filtradas.filter(r => r.desc?.toLowerCase().includes(busca));
-        filtradas.sort((a,b) => new Date(b.data)-new Date(a.data));
-        corpo.innerHTML = '';
-        if (!filtradas.length) { warning.classList.remove('hidden'); return; }
-        warning.classList.add('hidden');
-        filtradas.forEach(r => {
-            const tr = document.createElement('tr');
-            tr.className = 'hover:bg-slate-50 transition-colors';
-            tr.innerHTML = `
-                <td class="py-3 px-1 text-slate-600 text-sm">${fmtBR(r.data)}</td>
-                <td class="py-3 px-1">
-                    <span class="text-[10px] font-bold px-2 py-0.5 rounded-full ${categColors[r.categoria]||'bg-slate-100 text-slate-700'}">
-                        ${categLabel[r.categoria]||r.categoria}
-                    </span>
-                </td>
-                <td class="py-3 px-1 text-slate-700 text-sm">${r.desc||'-'}</td>
-                <td class="py-3 px-1 text-right font-bold text-red-700 text-sm">${fmtR(r.valor)}</td>
-                <td class="py-3 px-1 text-right">
-                    <button onclick="excluirRetirada('${r.id}')"
-                        class="p-1 px-2 bg-rose-50 hover:bg-rose-100 text-rose-500 rounded-lg text-xs font-bold transition">
-                        <i class="fa-solid fa-trash-can"></i>
-                    </button>
-                </td>`;
-            corpo.appendChild(tr);
-        });
-    };
-
-    // ── FIADOS ──────────────────────────────────────────────────
-    window.setFiadoFilter = function(f) {
-        currentFiadosFilter = f;
-        document.querySelectorAll('.fiado-filter-btn').forEach(btn =>
-            btn.className = 'fiado-filter-btn px-3 py-1.5 rounded-lg text-xs font-semibold bg-slate-100 text-slate-500 hover:bg-slate-200 transition');
-        document.getElementById(`fiado-filter-${f}`).className =
-            'fiado-filter-btn chip-active px-3 py-1.5 rounded-lg text-xs font-semibold transition';
-        renderizarFiados();
-    };
-
-    window.salvarFiado = async function(e) {
-        e.preventDefault();
-        if (!auth.currentUser && !window._modoOffline) return;
-        if (window._modoOffline) {
-            const novo = { id: Date.now().toString(), data: document.getElementById('data-fiado').value,
-                cliente: document.getElementById('cliente-fiado').value.trim(),
-                valor: +document.getElementById('valor-fiado').value||0, status: 'pendente' };
-            fiados.push(novo);
-            localStorage.setItem('mg_fiados', JSON.stringify(fiados));
-            document.getElementById('form-fiado').reset(); configurarDatasIniciais();
-            showToast('Fiado salvo localmente!','success'); renderizarTudo(); return;
-        }
-        const id = Date.now().toString();
-        const novo = {
-            id, data: document.getElementById('data-fiado').value,
-            cliente: document.getElementById('cliente-fiado').value.trim(),
-            valor: +document.getElementById('valor-fiado').value||0,
-            status: 'pendente'
-        };
-        try {
-            await setDoc(doc(db,'artifacts',colId,'public','data','fiados',id), novo);
-            document.getElementById('form-fiado').reset();
-            configurarDatasIniciais();
-            showToast('Fiado registrado!','success');
-        } catch { showToast('Erro ao registrar.','danger'); }
-    };
-
-    window.toggleStatusFiado = async function(id) {
-        const item = fiados.find(f => f.id === id);
-        if (!item) return;
-        const novoStatus = item.status === 'pendente' ? 'pago' : 'pendente';
-        if (window._modoOffline) {
-            item.status = novoStatus;
-            localStorage.setItem('mg_fiados', JSON.stringify(fiados));
-            showToast(novoStatus === 'pago' ? 'Fiado marcado como pago!' : 'Fiado reaberto.','success');
-            renderizarTudo(); return;
-        }
-        try {
-            await setDoc(doc(db,'artifacts',colId,'public','data','fiados',id), { ...item, status: novoStatus });
-            showToast(novoStatus === 'pago' ? 'Fiado marcado como pago!' : 'Fiado reaberto.','success');
-        } catch { showToast('Erro ao atualizar.','danger'); }
-    };
-
-    window.excluirFiado = async function(id) {
-        showConfirm('Excluir Fiado?','Esta ação é permanente.', async () => {
-            if (window._modoOffline) {
-                fiados = fiados.filter(f => f.id !== id);
-                localStorage.setItem('mg_fiados', JSON.stringify(fiados));
-                showToast('Fiado excluído.','danger'); renderizarTudo(); return;
-            }
-            try {
-                await deleteDoc(doc(db,'artifacts',colId,'public','data','fiados',id));
-                showToast('Fiado excluído.','danger');
-            } catch { showToast('Erro ao excluir.','danger'); }
-        });
-    };
-
-    window.renderizarFiados = function() {
-        const corpo   = document.getElementById('tabela-fiados-corpo');
-        const warning = document.getElementById('sem-fiados-warning');
-        const busca   = (document.getElementById('busca-fiado-nome').value||'').toLowerCase();
-        let filtrados = [...fiados];
-        if (currentFiadosFilter !== 'todos') filtrados = filtrados.filter(f => f.status === currentFiadosFilter);
-        if (busca) filtrados = filtrados.filter(f => f.cliente?.toLowerCase().includes(busca));
-        filtrados.sort((a,b) => new Date(b.data)-new Date(a.data));
-        corpo.innerHTML = '';
-        if (!filtrados.length) { warning.classList.remove('hidden'); return; }
-        warning.classList.add('hidden');
-        filtrados.forEach(f => {
-            const pend = f.status === 'pendente';
-            const tr = document.createElement('tr');
-            tr.className = 'hover:bg-slate-50 transition-colors';
-            tr.innerHTML = `
-                <td class="py-3 px-1 font-semibold text-slate-800 text-sm">${f.cliente}</td>
-                <td class="py-3 px-1 text-slate-500 text-sm">${fmtBR(f.data)}</td>
-                <td class="py-3 px-1 text-right font-bold text-slate-900 text-sm">${fmtR(f.valor)}</td>
-                <td class="py-3 px-1 text-center">
-                    <button onclick="toggleStatusFiado('${f.id}')"
-                        class="text-[10px] font-bold px-2.5 py-1 rounded-full transition
-                               ${pend ? 'bg-rose-50 text-rose-700 hover:bg-rose-100' : 'bg-emerald-50 text-emerald-700 hover:bg-emerald-100'}">
-                        ${pend ? 'Pendente' : 'Pago'}
-                    </button>
-                </td>
-                <td class="py-3 px-1 text-right">
-                    <button onclick="excluirFiado('${f.id}')"
-                        class="p-1 px-2 bg-slate-50 hover:bg-rose-50 text-slate-400 hover:text-rose-500 rounded-lg text-xs font-bold transition">
-                        <i class="fa-solid fa-trash-can"></i>
-                    </button>
-                </td>`;
-            corpo.appendChild(tr);
-        });
-    };
-
-    // ── DASHBOARD ───────────────────────────────────────────────
-    window.setDashboardPeriod = function(p) {
-        currentDashPeriod = p;
-        document.querySelectorAll('.dash-period-btn').forEach(btn =>
-            btn.className = 'dash-period-btn px-3 py-1.5 rounded-md text-xs font-semibold text-slate-500 transition');
-        document.getElementById(`dash-p-${p}`).className =
-            'dash-period-btn px-3 py-1.5 rounded-md text-xs font-semibold bg-white text-slate-800 shadow-sm transition';
-        const desc = { hoje:'Mostrando dados de hoje', mes:'Mostrando este mês', todos:'Mostrando todo o histórico' };
-        document.getElementById('dash-periodo-desc').textContent = desc[p];
-        renderizarDashboard();
-    };
-
-    function filtroData() {
-        const hoje = new Date().toISOString().split('T')[0];
-        const mes  = hoje.substring(0,7);
-        if (currentDashPeriod==='hoje') return d => d===hoje;
-        if (currentDashPeriod==='mes')  return d => d?.startsWith(mes);
-        return () => true;
-    }
-
-    function renderizarDashboard() {
-        const fd = filtroData();
-        const movs = movimentacoes.filter(m => fd(m.data));
-        const rets  = retiradas.filter(r => fd(r.data));
-
-        let tDS=0,tDF=0,tPS=0,tPF=0,tCS=0,tCF=0,tBs=0,tBf=0;
-        movs.forEach(m => {
-            tDS+=m.dinheiro?.sistema||0; tDF+=m.dinheiro?.fisico||0;
-            tPS+=m.pix?.sistema||0;      tPF+=m.pix?.fisico||0;
-            tCS+=m.credito?.sistema||0;  tCF+=m.credito?.fisico||0;
-            tBs+=m.debito?.sistema||0;   tBf+=m.debito?.fisico||0;
-        });
-
-        let tTaxa=0,tSang=0,tSaid=0,tOut=0;
-        rets.forEach(r => {
-            if (r.categoria==='taxa_maquina') tTaxa+=r.valor;
-            else if (r.categoria==='sangria') tSang+=r.valor;
-            else if (r.categoria==='saida_dia') tSaid+=r.valor;
-            else tOut+=r.valor;
-        });
-        const tRet   = tTaxa+tSang+tSaid+tOut;
-        const pend   = fiados.filter(f=>f.status==='pendente');
-        const tFiado = pend.reduce((a,f)=>a+f.valor,0);
-        const tCart  = tCF+tBf;
-        const bal    = (tDF+tPF+tCart)-tRet;
-        const receit = tDS+tPS+tCS+tBs;
-
-        const set = (id,v) => { const el=document.getElementById(id); if(el) el.textContent=v; };
-        set('dash-val-dinheiro', fmtR(tDF));
-        set('dash-val-pix',      fmtR(tPF));
-        set('dash-val-cartao',   fmtR(tCart));
-        set('dash-cartao-split-summary', `${fmtR(tCF)} / ${fmtR(tBf)}`);
-        set('dash-val-retiradas', fmtR(tRet));
-        set('dash-retiradas-split-summary', `S:${fmtR(tSang)} / D:${fmtR(tSaid)}`);
-        set('dash-val-fiado',    fmtR(tFiado));
-        set('dash-fiados-ativos-count', pend.length);
-        set('dash-qtd-fechamentos', movs.length);
-        set('dash-receita-total', fmtR(receit));
-        set('dash-val-total',    fmtR(bal));
-        set('desp-taxas',  fmtR(tTaxa));
-        set('desp-sangria',fmtR(tSang));
-        set('desp-saidas', fmtR(tSaid));
-        set('desp-outros', fmtR(tOut));
-
-        // Badges de diferença
-        function badge(id, dif) {
-            const el = document.getElementById(id);
-            if (!el) return;
-            const cls = dif>0.01 ? 'text-emerald-600 font-bold' : dif<-0.01 ? 'text-rose-600 font-bold' : 'text-slate-500 font-bold';
-            el.className = cls;
-            el.textContent = (dif>=0?'+':'')+fmtR(dif);
-        }
-        badge('dash-dif-dinheiro', tDF-tDS);
-        badge('dash-dif-pix',      tPF-tPS);
-        badge('dash-balanco-final',(tDF-tDS)+(tPF-tPS)+(tCF-tCS)+(tBf-tBs));
-
-        // Barras comparativas
-        const mx = Math.max(tDS,tDF,tPS,tPF,tCS,tCF,tBs,tBf,1);
-        const bar = (prefix, sis, fis) => {
-            set(`bar-${prefix}-sis`, fmtR(sis));
-            set(`bar-${prefix}-fis`, fmtR(fis));
-            const es = document.getElementById(`bar-${prefix}-sis-fill`);
-            const ef = document.getElementById(`bar-${prefix}-fis-fill`);
-            if (es) es.style.width = `${(sis/mx)*100}%`;
-            if (ef) ef.style.width = `${(fis/mx)*100}%`;
-        };
-        bar('dinheiro',tDS,tDF); bar('pix',tPS,tPF); bar('credito',tCS,tCF); bar('debito',tBs,tBf);
-    }
-
-    // ── HISTÓRICO ───────────────────────────────────────────────
-    window.toggleFiltroInputs = function() {
-        const tipo = document.getElementById('tipo-filtro').value;
-        document.getElementById('busca-dia').classList.add('hidden');
-        document.getElementById('busca-mes').classList.add('hidden');
-        if (tipo==='dia') document.getElementById('busca-dia').classList.remove('hidden');
-        else if (tipo==='mes') document.getElementById('busca-mes').classList.remove('hidden');
-        renderizarRelatorioCompleto();
-    };
-
-    window.renderizarRelatorioCompleto = function() {
-        const corpo   = document.getElementById('tabela-historico-corpo');
-        const warning = document.getElementById('sem-fechamentos-warning');
-        const tipo    = document.getElementById('tipo-filtro').value;
-        let filtrados = [...movimentacoes];
-        if (tipo==='dia') { const d=document.getElementById('busca-dia').value; filtrados=filtrados.filter(m=>m.data===d); }
-        else if (tipo==='mes') { const ms=document.getElementById('busca-mes').value; filtrados=filtrados.filter(m=>m.data?.startsWith(ms)); }
-        corpo.innerHTML = '';
-        if (!filtrados.length) { warning.classList.remove('hidden'); return; }
-        warning.classList.add('hidden');
-        filtrados.sort((a,b)=>new Date(b.data)-new Date(a.data));
-        filtrados.forEach(m => {
-            const subs = [
-                { nome:'Dinheiro', sis:m.dinheiro?.sistema||0, fis:m.dinheiro?.fisico||0, icon:'fa-money-bill-wave text-red-400' },
-                { nome:'Pix',      sis:m.pix?.sistema||0,      fis:m.pix?.fisico||0,      icon:'fa-brands fa-pix text-sky-400' },
-                { nome:'Crédito',  sis:m.credito?.sistema||0,  fis:m.credito?.fisico||0,  icon:'fa-credit-card text-amber-400' },
-                { nome:'Débito',   sis:m.debito?.sistema||0,   fis:m.debito?.fisico||0,   icon:'fa-credit-card text-yellow-400' }
-            ];
-            subs.forEach((s,idx) => {
-                const dif    = s.fis - s.sis;
-                const corDif = dif>0.01 ? 'text-emerald-600' : dif<-0.01 ? 'text-rose-600' : 'text-slate-400';
-                const bdg    = dif>0.01 ? 'bg-emerald-50 text-emerald-700' : dif<-0.01 ? 'bg-rose-50 text-rose-700' : 'bg-slate-100 text-slate-600';
-                const label  = dif>0.01?'Sobra':dif<-0.01?'Quebra':'OK';
-                const acoes  = idx===0
-                    ? `<div class="flex justify-end gap-1">
-                          <button onclick="habilitarEdicaoCaixa('${m.id}')" class="p-1 px-2 bg-amber-50 hover:bg-amber-100 text-amber-700 rounded-lg text-xs font-bold transition"><i class="fa-solid fa-pen-to-square"></i></button>
-                          <button onclick="excluirMovimentacao('${m.id}')" class="p-1 px-2 bg-rose-50 hover:bg-rose-100 text-rose-600 rounded-lg text-xs font-bold transition"><i class="fa-solid fa-trash-can"></i></button>
-                       </div>`
-                    : '';
-                const tr = document.createElement('tr');
-                tr.className = 'hover:bg-slate-50 transition-colors border-b border-slate-100';
-                tr.innerHTML = `
-                    <td class="py-2.5 px-1 font-semibold text-slate-700 text-sm ${idx===0?'':'opacity-0'}">${idx===0?fmtBR(m.data):''}</td>
-                    <td class="py-2.5 px-1 text-slate-600 text-sm"><i class="fa-solid ${s.icon} mr-1 text-[10px]"></i>${s.nome}</td>
-                    <td class="py-2.5 px-1 text-right text-slate-400 font-mono text-sm">${fmtR(s.sis)}</td>
-                    <td class="py-2.5 px-1 text-right text-slate-800 font-bold font-mono text-sm">${fmtR(s.fis)}</td>
-                    <td class="py-2.5 px-1 text-right font-bold font-mono text-sm ${corDif}">${(dif>=0?'+':'')+fmtR(dif)}</td>
-                    <td class="py-2.5 px-1 text-center"><span class="inline-flex px-2 py-0.5 text-[10px] font-bold rounded-full ${bdg}">${label}</span></td>
-                    <td class="py-2.5 px-1 text-right">${acoes}</td>`;
-                corpo.appendChild(tr);
-            });
-        });
-    };
-
-    // ── GRÁFICOS ────────────────────────────────────────────────
-    window.setGraficoPeriod = function(p) {
-        currentGraficoPeriod = p;
-        document.querySelectorAll('.graf-period-btn').forEach(btn =>
-            btn.className = 'graf-period-btn px-3 py-1.5 rounded-md text-xs font-semibold text-slate-500 transition');
-        document.getElementById(`graf-p-${p}`).className =
-            'graf-period-btn px-3 py-1.5 rounded-md text-xs font-semibold bg-white text-slate-800 shadow-sm transition';
-        renderizarGraficos();
-    };
-
-    function filtrarGrafico(lista) {
-        if (currentGraficoPeriod === 'todos') return lista;
-        const dias  = currentGraficoPeriod === '7d' ? 7 : 30;
-        const lim   = new Date(); lim.setDate(lim.getDate() - dias);
-        return lista.filter(i => new Date(i.data) >= lim);
-    }
-
-    function renderizarGraficos() {
-        const movs = filtrarGrafico(movimentacoes).sort((a,b)=>new Date(a.data)-new Date(b.data));
-        const rets  = filtrarGrafico(retiradas);
-
-        // ① Linha: evolução diária
-        const evEmpty = document.getElementById('chart-evolucao-empty');
-        if (movs.length < 2) {
-            evEmpty.style.display='flex';
-            if (chartEvolucao) { chartEvolucao.destroy(); chartEvolucao=null; }
-        } else {
-            evEmpty.style.display='none';
-            const porData = {};
-            movs.forEach(m => {
-                porData[m.data] = (porData[m.data]||0) +
-                    (m.dinheiro?.fisico||0)+(m.pix?.fisico||0)+(m.credito?.fisico||0)+(m.debito?.fisico||0);
-            });
-            const labels = Object.keys(porData).map(d=>fmtBR(d));
-            const data   = Object.values(porData);
-            if (chartEvolucao) chartEvolucao.destroy();
-            chartEvolucao = new Chart(
-                document.getElementById('chart-evolucao').getContext('2d'), {
-                type: 'line',
-                data: { labels, datasets: [{
-                    label: 'Receita Física',
-                    data, borderColor:'#2563eb',
-                    backgroundColor:'rgba(37,99,235,0.07)',
-                    tension: 0.4, fill: true,
-                    pointRadius: 4, pointBackgroundColor:'#2563eb'
-                }]},
-                options: {
-                    responsive:true, maintainAspectRatio:false,
-                    plugins:{ legend:{ display:false } },
-                    scales:{
-                        y:{ ticks:{ callback: v=>'R$'+v.toLocaleString('pt-BR'), font:{size:10} }, grid:{ color:'#f1f5f9' } },
-                        x:{ ticks:{ font:{size:10} }, grid:{ display:false } }
-                    }
-                }
-            });
-        }
-
-        // ② Pizza: formas de pagamento
-        const fmEmpty = document.getElementById('chart-formas-empty');
-        const tD = movs.reduce((a,m)=>a+(m.dinheiro?.fisico||0),0);
-        const tP = movs.reduce((a,m)=>a+(m.pix?.fisico||0),0);
-        const tC = movs.reduce((a,m)=>a+(m.credito?.fisico||0),0);
-        const tB = movs.reduce((a,m)=>a+(m.debito?.fisico||0),0);
-        const tot= tD+tP+tC+tB;
-        if (!tot) {
-            fmEmpty.style.display='flex';
-            if (chartFormas) { chartFormas.destroy(); chartFormas=null; }
-        } else {
-            fmEmpty.style.display='none';
-            if (chartFormas) chartFormas.destroy();
-            chartFormas = new Chart(
-                document.getElementById('chart-formas').getContext('2d'), {
-                type:'doughnut',
-                data:{
-                    labels:['Dinheiro','Pix','Crédito','Débito'],
-                    datasets:[{ data:[tD,tP,tC,tB],
-                        backgroundColor:['#ef4444','#0ea5e9','#f59e0b','#eab308'],
-                        borderWidth:0, hoverOffset:4 }]
-                },
-                options:{
-                    responsive:true, maintainAspectRatio:false,
-                    plugins:{
-                        legend:{ position:'bottom', labels:{ font:{size:10}, padding:12, usePointStyle:true } },
-                        tooltip:{ callbacks:{ label: ctx=>` ${ctx.label}: ${fmtR(ctx.raw)} (${((ctx.raw/tot)*100).toFixed(1)}%)` } }
-                    }
-                }
-            });
-        }
-
-        // ③ Barras: retiradas por categoria
-        const rtEmpty = document.getElementById('chart-retiradas-empty');
-        const cat = { taxa_maquina:0, sangria:0, saida_dia:0, outros:0 };
-        rets.forEach(r => { if (cat[r.categoria]!==undefined) cat[r.categoria]+=r.valor; else cat.outros+=r.valor; });
-        const totRet = Object.values(cat).reduce((a,b)=>a+b,0);
-        if (!totRet) {
-            rtEmpty.style.display='flex';
-            if (chartRetiradas) { chartRetiradas.destroy(); chartRetiradas=null; }
-        } else {
-            rtEmpty.style.display='none';
-            if (chartRetiradas) chartRetiradas.destroy();
-            chartRetiradas = new Chart(
-                document.getElementById('chart-retiradas').getContext('2d'), {
-                type:'bar',
-                data:{
-                    labels:['Taxa Máq.','Sangria','Saída Dia','Outros'],
-                    datasets:[{ data:[cat.taxa_maquina,cat.sangria,cat.saida_dia,cat.outros],
-                        backgroundColor:['#f59e0b','#ef4444','#3b82f6','#94a3b8'],
-                        borderRadius:6, borderSkipped:false }]
-                },
-                options:{
-                    responsive:true, maintainAspectRatio:false,
-                    plugins:{ legend:{ display:false } },
-                    scales:{
-                        y:{ ticks:{ callback: v=>'R$'+v.toLocaleString('pt-BR'), font:{size:10} }, grid:{color:'#f1f5f9'} },
-                        x:{ ticks:{ font:{size:10} }, grid:{ display:false } }
-                    }
-                }
-            });
-        }
-
-        // ④ Ranking de fiados
-        const rank    = document.getElementById('ranking-fiados');
-        const pend    = fiados.filter(f=>f.status==='pendente').sort((a,b)=>b.valor-a.valor).slice(0,5);
-        const maxFiad = pend[0]?.valor || 1;
-        rank.innerHTML = pend.length
-            ? pend.map((f,i) => `
-                <div class="flex items-center gap-3">
-                    <span class="text-xs font-black text-slate-300 w-4">${i+1}</span>
-                    <div class="flex-1">
-                        <div class="flex justify-between mb-1">
-                            <span class="text-xs font-semibold text-slate-700">${f.cliente}</span>
-                            <span class="text-xs font-bold text-rose-600">${fmtR(f.valor)}</span>
-                        </div>
-                        <div class="w-full bg-slate-100 rounded-full h-1.5">
-                            <div class="bg-rose-400 h-1.5 rounded-full" style="width:${((f.valor/maxFiad)*100).toFixed(0)}%"></div>
-                        </div>
-                    </div>
-                </div>`).join('')
-            : `<div class="text-center py-8 text-slate-400 text-xs">
-                <i class="fa-solid fa-user-slash text-2xl block mb-2 text-slate-200"></i>
-                Nenhum fiado pendente
-               </div>`;
-    }
-
-    // ── LIMPAR TUDO ─────────────────────────────────────────────
-    window.limparTudo = function() {
-        if (!auth.currentUser) return;
-        showConfirm(
-            'Redefinir banco de dados?',
-            'Todos os lançamentos, retiradas e fiados serão deletados permanentemente. Esta ação não pode ser desfeita.',
-            async () => {
-                try {
-                    for (const m of movimentacoes)
-                        await deleteDoc(doc(db,'artifacts',colId,'public','data','movimentacoes',m.id));
-                    for (const f of fiados)
-                        await deleteDoc(doc(db,'artifacts',colId,'public','data','fiados',f.id));
-                    for (const r of retiradas)
-                        await deleteDoc(doc(db,'artifacts',colId,'public','data','retiradas',r.id));
-                    showToast('Banco de dados reiniciado!','danger');
-                    configurarDatasIniciais();
-                } catch { showToast('Erro ao limpar.','danger'); }
-            }
-        );
-    };
-
-    // ── EXPORTAR CSV ────────────────────────────────────────────
-    window.exportarCSV = function() {
-        if (!movimentacoes.length && !fiados.length && !retiradas.length) {
-            showToast('Nenhum dado disponível.','danger'); return;
-        }
-        let csv = "data:text/csv;charset=utf-8,\uFEFF";
-        csv += "FECHAMENTOS DE CAIXA\nData;Forma;Sistema;Fisico;Diferenca\n";
-        movimentacoes.forEach(m => {
-            ['dinheiro','pix','credito','debito'].forEach(f => {
-                const s=m[f]?.sistema||0, fs=m[f]?.fisico||0;
-                csv += `${fmtBR(m.data)};${f};${s.toFixed(2)};${fs.toFixed(2)};${(fs-s).toFixed(2)}\n`;
-            });
-        });
-        csv += "\n\nRETIRADAS\nData;Categoria;Descricao;Valor\n";
-        retiradas.forEach(r => csv += `${fmtBR(r.data)};${r.categoria};${r.desc};${r.valor}\n`);
-        csv += "\n\nFIADOS\nData;Cliente;Valor;Status\n";
-        fiados.forEach(f => csv += `${fmtBR(f.data)};${f.cliente};${f.valor};${f.status==='pendente'?'Pendente':'Quitado'}\n`);
-        const link = document.createElement('a');
-        link.href     = encodeURI(csv);
-        link.download = `Marigest_${new Date().toISOString().split('T')[0]}.csv`;
-        document.body.appendChild(link); link.click(); document.body.removeChild(link);
-        showToast('CSV exportado!','success');
-    };
-
+import { initializeApp } from "firebase/app";
+import { getAuth, signInAnonymously, onAuthStateChanged } from "firebase/auth";
+import { getFirestore, doc, setDoc, collection, onSnapshot, deleteDoc } from "firebase/firestore";
+
+const app = initializeApp({
+  apiKey: "AIzaSyAZN-1E2MpiKl9TQeUtHfbmBU729Dk5VbQ",
+  authDomain: "margestch.firebaseapp.com",
+  projectId: "margestch",
+  storageBucket: "margestch.firebasestorage.app",
+  messagingSenderId: "68222331424",
+  appId: "1:68222331424:web:17b102bc69bed9c58caa45"
+});
+const auth = getAuth(app), db = getFirestore(app);
+const col = collection(db, 'artifacts', 'default-app-id', 'public', 'data', 'lancamentos');
+const LS = 'mg_lancamentos';
+
+// ── Estado e utilitários ────────────────────────────────────
+let lanc = [], local = false, editId = null, tipo = 'entrada', filtro = 'todos', unsub = null;
+const FORMAS = { dinheiro: 'Dinheiro', pix: 'Pix', cartao: 'Cartão' };
+const $ = id => document.getElementById(id);
+const fmtR = v => (v || 0).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' });
+const fmtBR = s => { if (!s) return '-'; const [y, m, d] = s.split('-'); return `${d}/${m}/${y}`; };
+const isoLocal = d => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+const hoje = () => isoLocal(new Date());
+const esc = x => String(x ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+
+function calc(list) {
+  const e = { dinheiro: 0, pix: 0, cartao: 0 }, s = { dinheiro: 0, pix: 0, cartao: 0 };
+  list.forEach(x => { (x.tipo === 'entrada' ? e : s)[x.forma] += x.valor || 0; });
+  const ent = e.dinheiro + e.pix + e.cartao, sai = s.dinheiro + s.pix + s.cartao;
+  return { e, s, ent, sai, total: ent - sai };
+}
+
+// ── Persistência (nuvem ou local) ───────────────────────────
+function entrarModoLocal() {
+  local = true; if (unsub) unsub();
+  try { lanc = JSON.parse(localStorage.getItem(LS) || '[]'); } catch { lanc = []; }
+  $('status').className = 'text-xs font-semibold px-3 py-1 rounded-lg bg-slate-100 text-slate-600';
+  $('status').textContent = 'Modo local';
+  render();
+}
+async function gravar(x) {
+  if (local) {
+    const i = lanc.findIndex(a => a.id === x.id);
+    if (i >= 0) lanc[i] = x; else lanc.push(x);
+    localStorage.setItem(LS, JSON.stringify(lanc)); render();
+  } else await setDoc(doc(col, x.id), x);
+}
+async function remover(id) {
+  if (local) { lanc = lanc.filter(a => a.id !== id); localStorage.setItem(LS, JSON.stringify(lanc)); render(); }
+  else await deleteDoc(doc(col, id));
+}
+signInAnonymously(auth).catch(entrarModoLocal);
+onAuthStateChanged(auth, user => {
+  if (!user) return;
+  $('status').className = 'text-xs font-semibold px-3 py-1 rounded-lg bg-emerald-50 text-emerald-700';
+  $('status').textContent = 'Nuvem ativa';
+  unsub = onSnapshot(col, snap => { lanc = snap.docs.map(d => ({ id: d.id, ...d.data() })); render(); }, entrarModoLocal);
+});
+
+// ── Formulário ──────────────────────────────────────────────
+window.setTipo = t => {
+  tipo = t;
+  const on = { entrada: 'bg-emerald-600 text-white', saida: 'bg-red-600 text-white' }, off = 'bg-slate-100 text-slate-500';
+  $('tp-entrada').className = `py-2 rounded-xl text-sm font-bold ${t === 'entrada' ? on.entrada : off}`;
+  $('tp-saida').className = `py-2 rounded-xl text-sm font-bold ${t === 'saida' ? on.saida : off}`;
+  $('f-submit').className = `flex-1 py-2.5 text-white rounded-xl text-sm font-bold ${t === 'entrada' ? 'bg-emerald-600' : 'bg-red-600'}`;
+  $('f-forma-l').firstChild.textContent = t === 'entrada' ? 'Recebido em' : 'Pago com / sai de';
+};
+window.salvarForm = async e => {
+  e.preventDefault();
+  const valor = parseFloat($('f-valor').value);
+  if (!(valor > 0)) return;
+  const x = { id: editId || Date.now().toString(), tipo, data: $('f-data').value, valor, forma: $('f-forma').value, desc: $('f-desc').value.trim() };
+  try { await gravar(x); cancelarEdicao(); } catch { alert('Erro ao salvar. Tente novamente.'); }
+};
+window.cancelarEdicao = () => {
+  editId = null; $('f-valor').value = ''; $('f-desc').value = ''; $('f-data').value = hoje();
+  $('f-cancel').classList.add('hidden'); $('f-submit').textContent = 'Salvar';
+};
+window.editar = id => {
+  const x = lanc.find(a => a.id === id); if (!x) return;
+  editId = id; setTipo(x.tipo);
+  $('f-data').value = x.data; $('f-valor').value = x.valor; $('f-forma').value = x.forma; $('f-desc').value = x.desc || '';
+  $('f-cancel').classList.remove('hidden'); $('f-submit').textContent = 'Atualizar';
+  window.scrollTo({ top: 0, behavior: 'smooth' });
+};
+window.excluir = async id => {
+  if (!confirm('Excluir este lançamento?')) return;
+  try { await remover(id); } catch { alert('Erro ao excluir.'); }
+};
+
+// ── Lista e saldo ───────────────────────────────────────────
+window.setFiltro = f => { filtro = f; renderLista(); };
+window.renderLista = () => {
+  $('filtros').innerHTML = [['todos', 'Todos'], ['entrada', 'Entradas'], ['saida', 'Saídas']].map(([k, n]) =>
+    `<button onclick="setFiltro('${k}')" class="px-3 py-1.5 rounded-lg text-xs font-semibold ${filtro === k ? 'bg-slate-800 text-white' : 'bg-slate-100 text-slate-500'}">${n}</button>`).join('');
+  const b = $('busca').value.toLowerCase();
+  const l = lanc.filter(x => (filtro === 'todos' || x.tipo === filtro) && (!b || (x.desc || '').toLowerCase().includes(b)))
+    .sort((a, c) => a.data === c.data ? (a.id < c.id ? 1 : -1) : (a.data < c.data ? 1 : -1));
+  $('lista').innerHTML = l.length ? l.map(x => {
+    const ent = x.tipo === 'entrada';
+    return `<tr><td class="py-2.5 pr-2 text-slate-500 whitespace-nowrap">${fmtBR(x.data)}</td>
+      <td class="py-2.5 pr-2"><span class="text-[10px] font-bold px-2 py-0.5 rounded-full ${ent ? 'bg-emerald-50 text-emerald-700' : 'bg-red-50 text-red-700'}">${ent ? 'Entrada' : 'Saída'}</span> <span class="text-xs text-slate-400">${FORMAS[x.forma] || x.forma}</span></td>
+      <td class="py-2.5 pr-2">${esc(x.desc) || '<span class="text-slate-300">—</span>'}</td>
+      <td class="py-2.5 pr-2 text-right font-bold whitespace-nowrap ${ent ? 'text-emerald-700' : 'text-red-700'}">${ent ? '+' : '−'} ${fmtR(x.valor)}</td>
+      <td class="py-2.5 text-right whitespace-nowrap"><button onclick="editar('${x.id}')" class="text-xs px-2 py-1 bg-amber-50 text-amber-700 rounded-lg font-bold">Editar</button> <button onclick="excluir('${x.id}')" class="text-xs px-2 py-1 bg-rose-50 text-rose-600 rounded-lg font-bold">Excluir</button></td></tr>`;
+  }).join('') : '<tr><td class="py-8 text-center text-slate-400 text-xs">Nenhum lançamento.</td></tr>';
+};
+function renderSaldo() {
+  const s = calc(lanc), set = (id, v) => { $(id).textContent = fmtR(v); $(id).classList.toggle('text-rose-400', v < 0); };
+  set('s-total', s.total);
+  ['dinheiro', 'pix', 'cartao'].forEach(k => set('s-' + k, s.e[k] - s.s[k]));
+}
+
+// ── Relatórios ──────────────────────────────────────────────
+window.trocarRel = () => {
+  const t = $('r-tipo').value;
+  if (!$('r-data').value) $('r-data').value = hoje();
+  if (!$('r-mes').value) $('r-mes').value = hoje().slice(0, 7);
+  if (!$('r-ano').value) $('r-ano').value = new Date().getFullYear();
+  $('r-data').classList.toggle('hidden', !(t === 'dia' || t === 'semana'));
+  $('r-mes').classList.toggle('hidden', t !== 'mes');
+  $('r-ano').classList.toggle('hidden', t !== 'ano');
+  renderRel();
+};
+window.renderRel = () => {
+  const t = $('r-tipo').value, dv = $('r-data').value || hoje(), mv = $('r-mes').value || hoje().slice(0, 7), av = $('r-ano').value || new Date().getFullYear();
+  let ini, fim, titulo;
+  if (t === 'dia') { ini = fim = dv; titulo = 'Relatório diário — ' + fmtBR(dv); }
+  else if (t === 'semana') {
+    const d = new Date(dv + 'T12:00:00'); d.setDate(d.getDate() - ((d.getDay() + 6) % 7));
+    ini = isoLocal(d); d.setDate(d.getDate() + 6); fim = isoLocal(d);
+    titulo = `Relatório semanal — ${fmtBR(ini)} a ${fmtBR(fim)}`;
+  }
+  else if (t === 'mes') { ini = mv + '-01'; fim = mv + '-31'; titulo = `Relatório mensal — ${mv.slice(5)}/${mv.slice(0, 4)}`; }
+  else { ini = av + '-01-01'; fim = av + '-12-31'; titulo = 'Relatório anual — ' + av; }
+
+  const l = lanc.filter(x => x.data >= ini && x.data <= fim), s = calc(l);
+  const card = (n, v, c) => `<div class="bg-white p-4 rounded-2xl border border-slate-200"><p class="text-[10px] font-bold text-slate-400 uppercase">${n}</p><p class="text-xl font-extrabold ${c}">${fmtR(v)}</p></div>`;
+  const tabela = (tit, cab, linhas) => `<div class="bg-white p-5 rounded-2xl border border-slate-200 overflow-x-auto"><h3 class="font-bold text-sm mb-3">${tit}</h3><table class="w-full text-sm text-left"><thead><tr class="text-xs text-slate-400 uppercase border-b border-slate-100">${cab.map((c, i) => `<th class="pb-2 font-semibold ${i ? 'text-right' : ''}">${c}</th>`).join('')}</tr></thead><tbody class="divide-y divide-slate-100">${linhas || `<tr><td colspan="${cab.length}" class="py-6 text-center text-slate-400 text-xs">Sem registros no período.</td></tr>`}</tbody></table></div>`;
+  const neg = v => v < 0 ? 'text-rose-600' : '';
+
+  const formas = Object.keys(FORMAS).map(k => `<tr><td class="py-2 font-semibold">${FORMAS[k]}</td><td class="py-2 text-right">${fmtR(s.e[k])}</td><td class="py-2 text-right text-red-600">${fmtR(s.s[k])}</td><td class="py-2 text-right font-bold ${neg(s.e[k] - s.s[k])}">${fmtR(s.e[k] - s.s[k])}</td></tr>`).join('');
+
+  let quebra = '';
+  if (t !== 'dia') {
+    const g = {}, key = d => t === 'ano' ? d.slice(0, 7) : d;
+    l.forEach(x => { const k = key(x.data); g[k] = g[k] || { e: 0, s: 0 }; g[k][x.tipo === 'entrada' ? 'e' : 's'] += x.valor; });
+    const lin = Object.keys(g).sort().map(k => `<tr><td class="py-2">${t === 'ano' ? k.slice(5) + '/' + k.slice(0, 4) : fmtBR(k)}</td><td class="py-2 text-right">${fmtR(g[k].e)}</td><td class="py-2 text-right text-red-600">${fmtR(g[k].s)}</td><td class="py-2 text-right font-bold ${neg(g[k].e - g[k].s)}">${fmtR(g[k].e - g[k].s)}</td></tr>`).join('');
+    quebra = tabela(t === 'ano' ? 'Por mês' : 'Por dia', [t === 'ano' ? 'Mês' : 'Dia', 'Entradas', 'Saídas', 'Saldo'], lin);
+  }
+
+  const det = tipoL => [...l].filter(x => x.tipo === tipoL).sort((a, b) => a.data < b.data ? 1 : -1)
+    .map(x => `<tr><td class="py-2">${fmtBR(x.data)}</td><td class="py-2">${FORMAS[x.forma]}</td><td class="py-2 text-left">${esc(x.desc) || '-'}</td><td class="py-2 text-right font-bold">${fmtR(x.valor)}</td></tr>`).join('');
+
+  $('rel').innerHTML = `<h2 class="font-bold text-lg">${titulo}</h2>
+    <div class="grid grid-cols-3 gap-3">${card('Entradas', s.ent, 'text-emerald-700')}${card('Saídas', s.sai, 'text-red-700')}${card('Saldo do período', s.total, s.total < 0 ? 'text-rose-600' : 'text-blue-700')}</div>
+    ${tabela('Por forma de pagamento', ['Forma', 'Entradas', 'Saídas', 'Saldo'], formas)}
+    ${quebra}
+    ${tabela('Entradas detalhadas', ['Data', 'Forma', 'Descrição', 'Valor'], det('entrada'))}
+    ${tabela('Saídas detalhadas', ['Data', 'Forma', 'Descrição', 'Valor'], det('saida'))}`;
+};
+
+// ── Exportar CSV ────────────────────────────────────────────
+window.exportarCSV = () => {
+  if (!lanc.length) return alert('Nenhum lançamento.');
+  const q = v => `"${String(v ?? '').replace(/"/g, '""')}"`;
+  const linhas = [...lanc].sort((a, b) => a.data < b.data ? -1 : 1).map(x => [fmtBR(x.data), x.tipo === 'entrada' ? 'Entrada' : 'Saída', FORMAS[x.forma], q(x.desc), x.valor.toFixed(2).replace('.', ',')].join(';'));
+  const blob = new Blob(['\uFEFFData;Tipo;Forma;Descrição;Valor\n' + linhas.join('\n')], { type: 'text/csv;charset=utf-8' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = `Marigest_${hoje()}.csv`; a.click();
+};
+
+// ── Navegação e render geral ────────────────────────────────
+window.aba = n => {
+  ['lanc', 'rel'].forEach(k => {
+    $('t-' + k).classList.toggle('hidden', k !== n);
+    $('b-' + k).className = `px-4 py-2.5 text-sm font-semibold border-b-2 ${k === n ? 'border-blue-600 text-blue-600' : 'border-transparent text-slate-500'}`;
+  });
+  if (n === 'rel') trocarRel();
+};
+function render() { renderSaldo(); renderLista(); if (!$('t-rel').classList.contains('hidden')) renderRel(); }
+setTipo('entrada'); $('f-data').value = hoje(); render();
 </script>
 </body>
 </html>
